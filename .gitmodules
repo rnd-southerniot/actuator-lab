@@ -4,3 +4,6 @@
 [submodule "reference/qube-servo2-plant"]
 	path = reference/qube-servo2-plant
 	url = https://github.com/rnd-southerniot/qube-servo2-plant.git
+[submodule "actuators/leesn-ig42et-stepper"]
+	path = actuators/leesn-ig42et-stepper
+	url = https://github.com/rnd-southerniot/leesn-ig42et-control.git

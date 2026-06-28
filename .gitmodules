@@ -1,0 +1,6 @@
+[submodule "actuators/leesn-ig28et-stepper"]
+	path = actuators/leesn-ig28et-stepper
+	url = https://github.com/rnd-southerniot/leesn-stepper-control.git
+[submodule "reference/qube-servo2-plant"]
+	path = reference/qube-servo2-plant
+	url = https://github.com/rnd-southerniot/qube-servo2-plant.git

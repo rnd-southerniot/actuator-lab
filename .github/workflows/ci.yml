@@ -1,0 +1,38 @@
+name: ci
+on:
+  push:
+  pull_request:
+
+jobs:
+  arduino-build:
+    name: Compile in-repo Arduino sketches (Uno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        # submodules not needed: they self-test in their own repos
+      - name: Install arduino-cli
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+          echo "$PWD/bin" >> "$GITHUB_PATH"
+      - name: Install AVR core
+        run: arduino-cli core update-index && arduino-cli core install arduino:avr
+      - name: Compile iSV57T firstspin + blink
+        run: |
+          arduino-cli compile --fqbn arduino:avr:uno actuators/isv57t-servo/test/firstspin
+          arduino-cli compile --fqbn arduino:avr:uno actuators/isv57t-servo/test/blink
+      - name: Compile pulse-dir test-harness
+        run: arduino-cli compile --fqbn arduino:avr:uno templates/test-harness/pulse-dir-arduino/firstspin
+
+  markdown-links:
+    name: Check relative doc links (in-repo only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-verbose-mode: 'yes'
+          config-file: '.github/mlc-config.json'
+          # skip submodule trees (checked out empty here)
+          folder-path: 'docs, templates, actuators/isv57t-servo'
+          max-depth: 4

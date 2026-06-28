@@ -15,7 +15,7 @@ passing the phase-gated [commissioning workflow](docs/COMMISSIONING-WORKFLOW.md)
 |---|---|---|---|---|---|
 | Leisai/Leadshine **iSV57T** (iSV5709V36T-01-1000) | Integrated BLDC servo | Pulse / DIR | Arduino Uno | ✅ validated (P0–P6) | [actuators/isv57t-servo](actuators/isv57t-servo) |
 | **LEESN IG28ET** | Integrated stepper | Modbus RTU / RS-485 | ESP32-S3 (RAK3112) | ✅ bench-proven (jog + goto, 0-count err) | [actuators/leesn-ig28et-stepper](actuators/leesn-ig28et-stepper) |
-| **LEESN IG42ET** | Integrated stepper | Modbus RTU / RS-485 | ESP32-S3 (RAK3112) | ✅ validated (P0–P6; 2.0 A, 4000 pp/rev, 0 drift) | [actuators/leesn-ig42et-stepper](actuators/leesn-ig42et-stepper) |
+| **LEESN IG42ET** | Integrated stepper | Modbus RTU / RS-485 | ESP32-S3 (RAK3112) | ✅ validated (P0–P7; 2.0 A, 4000 pp/rev, closed-loop, fault-recovery) | [actuators/leesn-ig42et-stepper](actuators/leesn-ig42et-stepper) |
 | Quanser **QUBE-Servo 2** | DC servo plant (model) | — (Simulink) | MATLAB | 📘 reference | [reference/qube-servo2-plant](reference/qube-servo2-plant) |
 
 Status legend: ✅ validated (all gates) · ⏳ partial (Phases 0–N) · ⚠️ blocked at a gate ·

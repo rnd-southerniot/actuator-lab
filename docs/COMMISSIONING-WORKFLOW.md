@@ -8,7 +8,7 @@ procedure. It generalizes the iSV57T bring-up (the worked example in
 - **Record every gate** in the motor's `COMMISSIONING-LOG.md` (check / expected /
   measured / pass?).
 - **Catalog status = highest phase fully passed** (see [CONVENTIONS.md](CONVENTIONS.md)).
-- **Motion phases (3–6) need the written safety go-ahead** and the motor secured, no
+- **Motion phases (3–7) need the written safety go-ahead** and the motor secured, no
   load, supply current-limited. Phases 0–2 are setup/read-only/first-energize.
 - **Stop immediately** on any unexpected behavior: alarm, runaway, growl/vibration,
   current spike, heat, smell. Power down (motor supply first), diagnose, then resume.
@@ -66,16 +66,37 @@ Prove the controller + toolchain independently of the motor.
 - Run **N out-and-back cycles** (e.g. 10×) at a representative speed.
 - Check the shaft mark returns home (no drift) and **zero alarm events** across the run.
 
-**Gate:** returns home with no drift, 0 faults over N cycles → **✅ validated**. ☐
+**Gate:** returns home with no drift, 0 faults over N cycles. ☐
+
+## Phase 7 — Fault handling & recovery  *(motion — needs go-ahead)*
+Prove the drive **detects** a fault, **fails safe**, and **recovers cleanly** — the field
+behaviour that matters when something jams.
+- With the drive enabled/commanded, **induce a fault** by a safe, controlled method —
+  e.g. **lock the shaft with power off, hands clear**, then command a slow move into the
+  lock → over-current / following-error. (Never grab a moving shaft.)
+- Verify the drive **flags** it (alarm/status register set, fault LED) and **stops/holds
+  safely** — no runaway, no silent step-loss masquerading as normal.
+- **Clear the fault** via the drive's reset (e.g. restart-driver bit / `mot-reset`); confirm
+  the alarm register returns to normal.
+- Verify **healthy operation resumes** — a normal small move completes with no error/alarm.
+
+**Gate:** fault detected → safe stop → clean reset → normal motion restored → **✅ validated**. ☐
+
+> If the drive is **open-loop** and a stall raises **no** alarm (silent step-loss), record
+> that as the finding — the recovery is re-homing, and the lack of stall protection is a
+> documented limitation, not a pass of *detection*.
 
 ---
 
-## After Phase 6
-- Write `RESULTS.md` (the constant, speed band, repeatability evidence).
+## After Phase 7
+- Write `RESULTS.md` (the constant, speed band, repeatability, fault-recovery evidence).
 - Write `docs/NEXT_SESSION.md` (what's left — loaded testing, tuning, etc.).
 - Flip the actuator's catalog row to ✅ in the top-level `README.md`.
+
+> **Grandfathering:** motors validated before Phase 7 was added (iSV57T, IG28ET) keep their
+> ✅ — re-run Phase 7 opportunistically when next on the bench.
 
 > Not every motor uses pulse/dir. For Modbus/CAN/analog drives, the *phases stay the
 > same* — only the mechanism changes (a "move" is a register write / velocity command,
 > the "unit constant" is position counts, etc.). Pick the matching
-> [test-harness](../templates/test-harness) as your Phase 1–6 starting firmware.
+> [test-harness](../templates/test-harness) as your Phase 1–7 starting firmware.

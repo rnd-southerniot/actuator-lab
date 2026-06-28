@@ -9,7 +9,7 @@ Status = the **highest commissioning phase fully passed**
 | ⛔ | not started | no phases run |
 | ⏳ | partial | Phases 0–N passed, more remain |
 | ⚠️ | blocked | stuck at a gate (note the blocker) |
-| ✅ | validated | Phase 6 passed |
+| ✅ | validated | final gate passed — Phase 7 (fault recovery); motors validated pre-Phase-7 grandfathered |
 | 📘 | reference | modeling/design only, not a driven actuator |
 
 ## Per-actuator file set (native folders)

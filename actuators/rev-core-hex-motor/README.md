@@ -18,9 +18,11 @@ MATLAB/Simulink plant model + system-ID workflow.
 Status legend in [../../docs/CONVENTIONS.md](../../docs/CONVENTIONS.md). **Firmware lives here in
 [test/](test/)** as an `st-discovery`-style Makefile project (arm-none-eabi + st-flash), reusing its
 proven F429 motor/encoder pins. Current sensing = **TI INA238** (I²C 16-bit monitor).
+Waveshare header pins + truth table are now resolved (PWMA=Pin37, M1=Pin38, M2=Pin40; sign-magnitude;
+FS1 on a board pad; 5 A/ch).
 **⚠️ Remaining before firmware:** (1) **pin-conflict audit** (per st-discovery `AGENTS.md`) for the new
-**FS1** input + **I2C3** (shared with the board's touch); (2) **Waveshare RPi-header pin numbers** for
-PWMA/IN1/IN2/FS1 + the **IN/PWM truth table** (wiki); (3) **INA238 shunt (~5 mΩ) + I²C address**.
+**FS1** input + **I2C3** (shared with the board's touch); (2) **INA238 shunt (~5 mΩ) + I²C address**;
+(3) confirm **FS1 active polarity** on the bench.
 
 ## Quick start
 

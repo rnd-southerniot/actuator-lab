@@ -24,13 +24,17 @@ CC := $(CROSS)gcc
 OBJCOPY := $(CROSS)objcopy
 SIZE := $(CROSS)size
 
-C_DEFS := -DUSE_HAL_DRIVER -DSTM32F429xx
+C_DEFS := -DUSE_HAL_DRIVER -DSTM32F429xx -DUSE_STM32F429I_DISCO
 C_INCLUDES := \
   -ICore/Inc \
   -I$(SHARED_DIR)/Drivers/CMSIS/Include \
   -I$(SHARED_DIR)/Drivers/CMSIS/Device/ST/STM32F4xx/Include \
   -I$(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Inc \
-  -I$(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy
+  -I$(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy \
+  -I$(SHARED_DIR)/Drivers/BSP/STM32F429I-Discovery \
+  -I$(SHARED_DIR)/Drivers/BSP/Components/ili9341 \
+  -I$(SHARED_DIR)/Drivers/BSP/Components/Common \
+  -I$(SHARED_DIR)/Utilities/Fonts
 
 CPU_FLAGS := -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 CFLAGS := $(CPU_FLAGS) $(C_DEFS) $(C_INCLUDES) -Og -g3 -Wall -Wextra -ffunction-sections -fdata-sections -fno-common
@@ -38,6 +42,7 @@ LDFLAGS := $(CPU_FLAGS) -TSTM32F429ZITX_FLASH.ld -Wl,--gc-sections -Wl,-Map=$(BU
 
 APP_SRCS := \
   Core/Src/main.c \
+  Core/Src/display.c \
   Core/Src/startup.c \
   Core/Src/system_stm32f4xx.c
 
@@ -56,9 +61,24 @@ HAL_SRCS := \
   $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c \
   $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c \
   $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c.c \
-  $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.c
+  $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.c \
+  $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma2d.c \
+  $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_ltdc.c \
+  $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_ltdc_ex.c \
+  $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_sdram.c \
+  $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.c \
+  $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_fmc.c
 
-SRCS := $(APP_SRCS) $(HAL_SRCS)
+# Step 4 (optional LCD): ST BSP for the F429I-DISCO panel (ILI9341 + LTDC + SDRAM).
+# Fonts are NOT listed here — stm32f429i_discovery_lcd.c #includes the font .c files
+# directly, so adding them separately causes multiple-definition link errors.
+BSP_SRCS := \
+  $(SHARED_DIR)/Drivers/BSP/STM32F429I-Discovery/stm32f429i_discovery.c \
+  $(SHARED_DIR)/Drivers/BSP/STM32F429I-Discovery/stm32f429i_discovery_lcd.c \
+  $(SHARED_DIR)/Drivers/BSP/STM32F429I-Discovery/stm32f429i_discovery_sdram.c \
+  $(SHARED_DIR)/Drivers/BSP/Components/ili9341/ili9341.c
+
+SRCS := $(APP_SRCS) $(HAL_SRCS) $(BSP_SRCS)
 OBJS := $(addprefix $(BUILD_DIR)/,$(SRCS:.c=.o))
 
 .PHONY: all clean flash

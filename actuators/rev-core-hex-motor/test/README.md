@@ -17,7 +17,12 @@ map. Target: **STM32F429I-DISC1** + **Waveshare RPi Motor Driver Board (2× MC33
   gated serial console, and a 1 kHz TIM6 PID loop (velocity + position, anti-windup, **default gains 0**).
   NVIC: encoder + FS EXTI = prio 2 (FS is EXTI line 7, shares the EXTI9_5 vector with PC5 → checked first),
   PID = 6, console UART = 8, SysTick = 15. Runtime assert guards APB1×2 == 90 MHz.
-- Step 4 — optional LCD live-plot.
+- **Step 4 ✅ optional LCD live view** (`Core/Src/display.c`): ST BSP (ILI9341 + LTDC, framebuffer in
+  SDRAM) shows a text panel (state/mode/pos/vel/current/bus/FS) + a scrolling velocity trace. **Non-fatal**
+  — a missing/failed panel just disables the view (`display_ok()==0`); drawing is main-context only and
+  decoupled from control. Adds the BSP/LTDC/DMA2D/SDRAM/SPI/FMC HAL + `-DUSE_STM32F429I_DISCO`; no pin
+  conflict with the motor/encoder/console map. (Fonts are pulled in by the BSP LCD .c — don't list them
+  separately or you get multiple-definition.)
 
 ## Console (115200 8N1) — motion is gated
 | cmd | effect | gate |

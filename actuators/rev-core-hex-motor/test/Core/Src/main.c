@@ -32,6 +32,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "display.h"
+
+static const char *const kStateName[3] = {"DISARMED", "ARMED", "FAULT"};
+static const char *const kModeName[4] = {"IDLE", "JOG", "VEL", "POS"};
+
 static TIM_HandleTypeDef htim2;  /* free-running 1 µs timebase for edge timestamps */
 static TIM_HandleTypeDef htim3;  /* TIM3_CH1 PWM on PB4 */
 static TIM_HandleTypeDef htim6;  /* 1 kHz control ISR */
@@ -324,8 +329,6 @@ static void uart_print(const char *s) {
 }
 
 static void print_status(void) {
-  static const char *const st_name[] = {"DISARMED", "ARMED", "FAULT"};
-  static const char *const md_name[] = {"IDLE", "JOG", "VEL", "POS"};
   char line[160];
   __disable_irq();
   int32_t pos = g_enc_count;
@@ -333,7 +336,7 @@ static void print_status(void) {
   int n = snprintf(line, sizeof(line),
                    "STATUS,state=%s,mode=%s,pos=%ld,vel_cps=%ld,duty=%ld,"
                    "cur_ma=%ld,bus_mv=%ld,ina_ok=%u,fs=%d\r\n",
-                   st_name[g_state], md_name[g_mode], (long)pos, (long)enc_velocity_cps(),
+                   kStateName[g_state], kModeName[g_mode], (long)pos, (long)enc_velocity_cps(),
                    (long)g_last_duty, (long)g_ina_current_ma, (long)g_ina_bus_mv,
                    (unsigned)g_ina_ok, fs_is_fault() ? 0 : 1);
   if (n > 0) {
@@ -435,6 +438,7 @@ int main(void) {
   Telem_Init();
   INA238_Init();
   PidTimer_Init(); /* control ISR starts; state DISARMED → it only ever applies 0 */
+  display_init();  /* optional LCD; non-fatal if absent */
 
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&g_rx_byte, 1);
   uart_print("REV Core Hex bench fw (Step 3). DISARMED. type 'status'.\r\n");
@@ -457,6 +461,24 @@ int main(void) {
       }
       ina238_sample(); /* blocking I2C — main context only */
       print_status();
+
+      if (display_ok()) {
+        __disable_irq();
+        int32_t pos = g_enc_count;
+        __enable_irq();
+        display_data_t dd = {
+            .state = kStateName[g_state],
+            .mode = kModeName[g_mode],
+            .pos = pos,
+            .vel_cps = enc_velocity_cps(),
+            .cur_ma = g_ina_current_ma,
+            .bus_mv = g_ina_bus_mv,
+            .duty = g_last_duty,
+            .fs_ok = (uint8_t)(fs_is_fault() ? 0U : 1U),
+            .ina_ok = g_ina_ok,
+        };
+        display_update(&dd);
+      }
     }
   }
 }

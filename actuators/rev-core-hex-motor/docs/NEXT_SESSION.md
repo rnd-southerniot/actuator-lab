@@ -7,18 +7,23 @@ Handoff note. Written 2026-06-29 (scaffold only — no hardware yet). Read first
 |---|---|---|
 | 1 | Driver = Waveshare RPi Motor Driver Board (2× MC33886); MCU = STM32F429I-DISC1 | ✅ |
 | 2 | Doc scaffold (SPECS/WIRING/SAFETY/MODELING/LOG) | ✅ 2026-06-29 |
-| 3 | Motor/encoder pinouts (REV image) + proposed F429 pin map (reuses st-discovery) | ✅ / ⏳ audit |
-| 4 | Firmware (st-discovery Makefile project) | ⛔ not written |
+| 3 | Motor/encoder pinouts (REV image) + F429 pin map (reuses st-discovery) | ✅ audit closed 2026-06-29 |
+| 4 | Firmware (st-discovery Makefile project) | ⏳ Steps 1–2 ✅ compile (PWM=0; PWM+DIR+FS+encoder+TIM2 vel+USART1 telem); Steps 3–4 pending |
 | 5 | Bench bring-up (Phases 0–7) | ⛔ not started |
 | 6 | Simulink model + system-ID | ⛔ not started |
 
 ## Exact next steps (no motion — desk + Phase 0–2)
-### Step A — close the wiring (desk)
-- Run the **SDRAM/LTDC/touch/gyro pin-conflict audit** (st-discovery `AGENTS.md`) for the NEW pins:
-  **FS1** (5 V-tolerant in) and **I2C3** (PA8/PC9 — the board's STMPE811 touch bus; coexist via a
-  non-colliding INA238 address or drop touch). Motor/encoder pins (PB4/PA5/PA7/PC4/PC5) already proven free.
-- Get the **Waveshare RPi-header pin numbers** for PWMA/IN1/IN2/FS1 + the **IN/PWM truth table** (wiki).
-- Pick the **INA238 shunt (~5 mΩ)** + I²C address; decide shunt placement (motor lead vs low-side).
+### Step A — close the wiring (desk) ✅ DONE 2026-06-29
+- ✅ **Pin-conflict audit closed** (ST UM1670 + Zephyr F429I-DISC1 board doc): motor/encoder/USART1
+  pins free; **I2C3 PA8/PC9 = STMPE811 touch bus @0x41** → INA238 coexists at **0x40**; **FS1 → PB7**
+  (free, 5 V-tolerant). Full map in [WIRING.md](../WIRING.md).
+- ✅ Waveshare header pins + truth table resolved: PWMA=Pin37, M1=Pin38, M2=Pin40, 3V3=Pin1, GND=Pin34/39.
+- ✅ **FS1 polarity:** MC33886 FS = open-drain, active-LOW, 1k→5 V (idle=HIGH, fault=LOW) → PB7 floating
+  input, trip PWM→0 on LOW. (NXP MC33886 datasheet rev 10.0.)
+- ✅ **INA238:** ~5 mΩ shunt, **address 0x40** (A0=A1=GND, Table 6-2). Shunt placement (motor-lead vs
+  low-side return) deferred to the bench — pick per PWM CM-noise. Reuse board's I2C3 pull-ups (≤400 kHz).
+- ⏳ **Bench-confirm (Phase 0–2):** PB7 HIGH idle / LOW on forced FS trip; meter board I2C3 pull-up before
+  adding INA238; verify FS1 pad = channel-A fault.
 
 ### Step B — firmware (in this folder's `test/`)
 Author the project **here** as an st-discovery-style Makefile build (CubeMX + Makefile + `st-flash`;
@@ -35,12 +40,16 @@ Wire per WIRING.md, current-limit ~1.5 A. Encoder hand-check (≈288 counts/out-
   (TIM2), not counts/sample. (Core design constraint — see MODELING.md.)
 - **Driving a Pi HAT from the F429:** feed the RPi-header logic pins at 3.3 V **and supply 3V3 to the
   board** (74LVC8T245 VCA ref); FS1 is pulled to **5 V** → 5 V-tolerant pin or divider.
-- **Board "ensured 3 A" < 4.4 A stall** — current-limit, don't sustain stall, trip on FS.
+- **Board rated 5 A/ch** (MC33886) — 4.4 A stall is within rating but close; current-limit + trip on FS.
+- **Naming collision:** board M1/M2 **screw terminals = motor OUTPUT**; M1/M2 **header pins = direction INPUT**.
 - Gearbox **backlash** dominates small-signal position accuracy — model it.
 - Encoder + its supply are **3.3 V** — never 5 V/12 V.
 
 ## One-line resume
 ```bash
-# desk: open the scaffold and resolve TBDs
-cd /Users/robotics/Developer/projects/robotics/actuator-lab/actuators/rev-core-hex-motor && $EDITOR WIRING.md docs/MODELING.md
+# Step A done; st-discovery cloned at ~/Developer/projects/robotics/st-discovery (untracked reference).
+# NEXT = Step B (firmware): scaffold test/ by mirroring firmware/balance-mvp-f429i-disc1 (Makefile +
+# linker + startup + HAL config), apply the WIRING.md pin map, boot PWM=0. SHARED_DIR HAL lives in
+# st-discovery/firmware/lcd-hello-f429i-disc1/Drivers (balance-mvp's Makefile points there).
+cd /Users/robotics/Developer/projects/robotics/actuator-lab/actuators/rev-core-hex-motor && $EDITOR WIRING.md test/README.md
 ```

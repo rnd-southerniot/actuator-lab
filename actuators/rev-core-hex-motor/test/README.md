@@ -12,12 +12,27 @@ map. Target: **STM32F429I-DISC1** + **Waveshare RPi Motor Driver Board (2× MC33
   FS input (PB7, read-only), EXTI quadrature encoder (PC4/PC5) + TIM2 1 µs edge-timestamp velocity,
   USART1 115200 `STATUS,pos=…,vel_cps=…,fs=…,duty=…` telemetry @ 10 Hz. **Still no motion** (duty never
   set non-zero). EXTI4/EXTI9_5 vectors wired in `startup.c`.
-- Step 3 — INA238 driver (0x40), 1 kHz PID ISR, **FS-trip latch (EXTI on PB7)**, gated console (jog/goto).
-  NVIC plan (from arm-cortex-expert review): **PB7 fault EXTI highest** (preempt 0–2) → cuts PWM first;
-  **encoder EXTI (5) must out-prioritize the TIM6/7 PID (≥6)** so velocity is fresh when PID samples it.
-  Also add a runtime assert that `HAL_RCC_GetPCLK1Freq()×2 == 90 MHz` so a clock-tree change can't silently
-  drift the 20 kHz PWM / 1 µs timebase.
+- **Step 3 ✅ first motion-capable build** (still boots DISARMED, PWM=0): INA238 current/voltage on I2C3
+  (@0x40), DISARMED/ARMED/FAULT state machine, MC33886 FS-trip (PB7 EXTI falling **+ 1 kHz backstop poll**),
+  gated serial console, and a 1 kHz TIM6 PID loop (velocity + position, anti-windup, **default gains 0**).
+  NVIC: encoder + FS EXTI = prio 2 (FS is EXTI line 7, shares the EXTI9_5 vector with PC5 → checked first),
+  PID = 6, console UART = 8, SysTick = 15. Runtime assert guards APB1×2 == 90 MHz.
 - Step 4 — optional LCD live-plot.
+
+## Console (115200 8N1) — motion is gated
+| cmd | effect | gate |
+|---|---|---|
+| `status` | STATUS line (also auto @ 10 Hz) | — |
+| `arm` / `disarm` | enter/leave ARMED | `arm` refused if FS faulted |
+| `jog <duty> <ms>` | open-loop, bounded ≤2000 ms, auto-stop | ARMED |
+| `vel <cps>` / `pos <counts>` | closed-loop setpoint | ARMED |
+| `gainv <kp> <ki>` / `gainp <kp> <ki> <kd>` | set PID gains (default **0** → no motion until tuned) | — |
+| `stop` | mode→IDLE, output 0 (stays armed) | — |
+| `reset` | clear FAULT → DISARMED | only if FS clear |
+
+Boots `DISARMED`. The motor cannot move until `arm` **and** a motion command **and** (for vel/pos) non-zero
+gains. FS LOW → FAULT (EXTI + poll); `apply_output()` masks the FS EXTI around its gate-check+compare write
+so a fault can't be overwritten by a stale duty (verified via arm-cortex-expert review).
 
 ## Toolchain
 - Needs a **complete** `arm-none-eabi-gcc` (WITH newlib), plus `make`.

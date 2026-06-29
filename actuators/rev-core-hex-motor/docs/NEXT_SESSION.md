@@ -8,7 +8,7 @@ Handoff note. Written 2026-06-29 (scaffold only — no hardware yet). Read first
 | 1 | Driver = Waveshare RPi Motor Driver Board (2× MC33886); MCU = STM32F429I-DISC1 | ✅ |
 | 2 | Doc scaffold (SPECS/WIRING/SAFETY/MODELING/LOG) | ✅ 2026-06-29 |
 | 3 | Motor/encoder pinouts (REV image) + F429 pin map (reuses st-discovery) | ✅ audit closed 2026-06-29 |
-| 4 | Firmware (st-discovery Makefile project) | ⏳ Steps 1–2 ✅ compile (PWM=0; PWM+DIR+FS+encoder+TIM2 vel+USART1 telem); Steps 3–4 pending |
+| 4 | Firmware (st-discovery Makefile project) | ⏳ Steps 1–3 ✅ compile (Step 3 = INA238 + arm/fault FSM + FS-trip + gated console + 1 kHz PID; boots DISARMED/PWM=0; expert-reviewed). Step 4 (LCD plot) optional. Bench Phases 0–7 next. |
 | 5 | Bench bring-up (Phases 0–7) | ⛔ not started |
 | 6 | Simulink model + system-ID | ⛔ not started |
 

@@ -68,6 +68,28 @@ extern "C" {
 #define ENC_COUNTS_PER_OUT_REV  288                           /* 4 CPR motor × 72 gear */
 #define ENC_VEL_STALE_US        100000UL                      /* >100 ms since last edge ⇒ vel = 0 */
 #define TELEM_PERIOD_MS         100U                          /* STATUS line cadence */
+#define CTRL_ISR_HZ             1000U                         /* TIM6 PID loop rate */
+
+/* --- INA238 current/voltage monitor (I2C3 @ 0x40) — datasheet SLYS025B --- */
+#define INA238_I2C_ADDR8        (INA238_I2C_ADDR_7B << 1)     /* HAL uses 8-bit addr */
+#define INA238_REG_CONFIG       0x00U
+#define INA238_REG_ADC_CONFIG   0x01U
+#define INA238_REG_SHUNT_CAL    0x02U
+#define INA238_REG_VSHUNT       0x04U
+#define INA238_REG_VBUS         0x05U
+#define INA238_REG_DIETEMP      0x06U
+#define INA238_REG_CURRENT      0x07U
+#define INA238_REG_MANUF_ID     0x3EU
+#define INA238_MANUF_ID         0x5449U   /* ASCII "TI" — presence check */
+#define INA238_CONFIG_ADCRANGE1 0x0010U   /* CONFIG bit4=1 → ±40.96 mV high-res */
+#define INA238_SHUNT_CAL_VALUE  4096U     /* 5 mΩ shunt, CURRENT_LSB 250 µA, ×4 for ADCRANGE=1 */
+/* Readback scaling (chosen so both are exact small-integer ops):
+ *   current_mA = (int16)CURRENT × 0.25  = CURRENT / 4
+ *   bus_mV     = VBUS × 3.125 mV         = VBUS × 25 / 8                                        */
+
+/* --- Control / safety --- */
+#define JOG_MAX_MS              2000U                         /* bounded open-loop jog window */
+#define PID_OUT_MAX             ((int32_t)PWM_ARR)            /* duty magnitude clamp = 100% */
 
 void Error_Handler(void);
 

@@ -41,7 +41,7 @@ APP_SRCS := \
   Core/Src/startup.c \
   Core/Src/system_stm32f4xx.c
 
-# Step 2 HAL set: clock + GPIO + TIM (PWM/timebase) + UART (telemetry). Step 3 adds i2c.
+# Step 3 HAL set: clock + GPIO + TIM (PWM/timebase/PID) + UART (console) + I2C (INA238).
 HAL_SRCS := \
   $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.c \
   $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.c \
@@ -54,7 +54,9 @@ HAL_SRCS := \
   $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash_ex.c \
   $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.c \
   $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c \
-  $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c
+  $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c \
+  $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c.c \
+  $(SHARED_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.c
 
 SRCS := $(APP_SRCS) $(HAL_SRCS)
 OBJS := $(addprefix $(BUILD_DIR)/,$(SRCS:.c=.o))

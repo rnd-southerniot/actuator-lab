@@ -9,6 +9,7 @@ encoder pins (PB4/PA5/PA7/PC4/PC5) and USART1 (PA9/PA10) are free of SDRAM-FMC /
 fault=LOW). All former `‹…›` placeholders resolved.
 
 ## POWER
+
 ```
    DC PSU 12 V               Waveshare RPi Motor Driver Board
    (limit ~1.5 A, fused)
@@ -21,37 +22,44 @@ fault=LOW). All former `‹…›` placeholders resolved.
    First test: 12 V, current limit ~1.5 A (stall 4.4 A; board rated 5 A/ch — start limited), fused.
    Meter-verify polarity; share GND with the STM32 (see CONTROL).
 ```
+
 > ⚠️ **Naming collision:** the board's **M1/M2 SCREW terminals = motor-A OUTPUT** (wire the REV motor
 > here), while **M1/M2 on the 40-pin HEADER = direction INPUTS** (CONTROL section). Don't swap them.
 
 ## CONTROL — Waveshare RPi Motor Driver Board (2× MC33886), Motor-A (right) channel
+
 Driven from the F429, **not** a Pi (vendor: "treat M1/M2 as digital outputs, PWMA as PWM"). Logic
-passes through the board's **74LVC4245AD** translator, so feed the Pi-header positions at 3.3 V **and
-supply 3V3 to a Pi 3V3 header pin** (translator A-side ref). Header pins are the **physical** numbers
+passes through the board's **74LVC8T245** translator, so feed the Pi-header positions at 3.3 V **and
+supply 3V3 to a Pi 3V3 header pin** (translator A-side / VCCA ref). Header pins are the **physical** numbers
 from the Waveshare wiki. Reuses the proven `st-discovery` DBH-12V map (PWM + 2 dir).
+
 ```
    STM32F429 (3.3 V)            Waveshare Pi-header (physical pin)
    PB4 TIM3_CH1 (~20 kHz) ────► PWMA = Pin 37     active-high PWM enable (speed)
    PA5 GPIO out          ────► M1   = Pin 38     direction A
    PA7 GPIO out          ────► M2   = Pin 40     direction B
-   3V3                   ────► 3V3  = Pin 1       (74LVC4245AD A-side reference)
+   3V3                   ────► 3V3  = Pin 1       (74LVC8T245 A-side / VCCA reference)
    GND                   ────► GND  = Pin 34/39   ◄── single common ground
    PB7 GPIO in (FT)      ◄──── FS1  = board FS1 pad (NOT on the 40-pin header; open-drain, 1k→5 V)
                                          active-LOW: idle=HIGH(~5 V), fault=LOW. PB7 is 5 V-tolerant →
                                          connect direct, NO internal pull-up; trip PWM→0 & latch on LOW.
    12 V PSU              ────► VIN (Power screw terminal)  7–40 V; board buck makes its own 5 V
 ```
+
 Direction / speed (sign-magnitude):
+
 | M1 | M2 | PWMA | Motor A |
 |---:|---:|---|---|
 | 1 | 0 | PWM | forward @ duty |
 | 0 | 1 | PWM | reverse @ duty |
 | x | x | 0 | coast / stop |
+
 > **Power-select switch → OFF** so the board does NOT back-feed 5 V to the controller side (the F429 is
 > USB-powered; don't wire the board's 5 V header pin to the F429). FS1 is a separate pad → 5 V-tolerant
 > pin or divider; trip PWM→0 on fault. (Motor B / left = M3 Pin 31, PWMB Pin 32, M4 Pin 33 — unused.)
 
 ## CURRENT SENSE — TI INA238 (I²C power monitor, external)
+
 ```
    board OUT1 (M+) ──►[ Rshunt ~5 mΩ ]──► motor M+     (in-line; INA238 reads SIGNED current)
                         │            │
@@ -64,12 +72,14 @@ Direction / speed (sign-magnitude):
                                        (=A1 GND/A0 VS) → 0x40 is the collision-free pick; touch left idle.
    Rshunt ~5 mΩ → 4.4 A ≈ 22 mV, within INA238 ±40.96 mV high-res range. Kelvin-sense the shunt.
 ```
+
 > INA238 returns **signed current + bus voltage + die-temp** over I²C → feeds the torque loop, the
 > fault trip, and (synchronized V,I) the Simulink param-ID. Use INA238 averaging to reject PWM noise.
 > ⚠️ Shunt placement: a PWM'd motor lead has high CM dv/dt — consider low-side return instead; pick on
 > the bench. If a fast inner current loop needs more BW than I²C allows, fall back to analog INA240→ADC.
 
 ## ENCODER — quadrature (4-pin JST-PH)
+
 ```
    REV encoder JST-PH (pins 1→4: Ch B, Ch A, 3.3V, GND)   STM32F429
    pin1 Ch B ──────────────────────────────────────────►   PC5  (reuse st-discovery encoder B)
@@ -77,6 +87,7 @@ Direction / speed (sign-magnitude):
    pin3 3.3V ──────────────────────────────────────────►   3V3  (encoder is native 3.3 V)
    pin4 GND  ──────────────────────────────────────────►   GND
 ```
+
 > Reuses the proven `st-discovery` PC4/PC5 encoder pins (already audited free). They're **not** a
 > timer-encoder pair, so decode A/B by **EXTI on both edges** and timestamp each edge from a free-running
 > **TIM2 (32-bit)** for low-speed velocity (T/M-method). 600 counts/s max is trivial for EXTI; the
@@ -85,6 +96,7 @@ Direction / speed (sign-magnitude):
 > SDRAM/LTDC pin-conflict audit**; many timer pins collide with the board's SDRAM/LCD.)
 
 ## DO / DON'T
+
 ```
   DO    power STM32 (USB) + idle FIRST, then 12 V motor supply; reverse on power-down
   DO    set DIR before commanding PWM; start with the smallest counted move
@@ -97,6 +109,7 @@ Direction / speed (sign-magnitude):
 ```
 
 ## Pin map — proposed (reuses st-discovery; ⚠️ run the SDRAM/LTDC/touch/gyro conflict audit before firmware)
+
 | Function | F429 pin / peripheral | Source / notes |
 |---|---|---|
 | Motor PWM → board PWMA | `PB4` — TIM3_CH1 (AF2) | reuse (DBH map); ~20 kHz. PB4=NJTRST → flash via SWD only |

@@ -19,8 +19,11 @@
 
 ## Control interface
 - Method: **bidirectional PWM via external H-bridge.** Chosen driver: **MC33886** — realized as the
-  **Waveshare "RPi Motor Driver Board"** (**2× MC33886**; on-board LM2596 5 V reg, **74LVC4245AD**
+  **Waveshare "RPi Motor Driver Board"** (**2× MC33886**; on-board LM2596 5 V reg, **74LVC8T245**
   3.3↔5 V level translator, Schottky flyback diodes, per-channel FS fault, 2 A self-recovery fuse).
+  (Translator PN per the **board schematic** — Waveshare's wiki product text mislabels it "74LVC4245AD";
+  the schematic's "Level Translator" block is 74LVC8T245. Both are 8-bit dual-supply VCCA/VCCB
+  transceivers, but cite the schematic.)
   Input **7–40 V**; **single-motor output up to 5 A** (vendor) → **4.4 A stall is within rating**
   (still current-limit + watch heat). M1/M2 = direction, PWMA = active-high PWM enable. (Alt on hand:
   BTS7960 43A. Earlier "TB6612FNG" label was wrong — this board is MC33886-based.) See [WIRING.md](WIRING.md).

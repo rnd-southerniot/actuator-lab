@@ -19,11 +19,15 @@
 
 ## Control interface
 - Method: **bidirectional PWM via external H-bridge.** Chosen driver: **MC33886** — realized as the
-  **Waveshare "RPi Motor Driver Board"** (schematic-confirmed: **2× MC33886**, U2+U3; on-board LM2596
-  buck VIN→5V, 74LVC8T245 3.3↔5 V level translator, SS54 flyback diodes, per-channel FS fault, thermal
-  fuses FS1/FS2). VIN ≤ 40 V; **board "ensured 3 A output" < 4.4 A stall** → current-limit, don't
-  sustain stall. (Alternative on hand: BTS7960 43A. The TB6612FNG note earlier was wrong — that board
-  is MC33886-based.) See [WIRING.md](WIRING.md).
+  **Waveshare "RPi Motor Driver Board"** (**2× MC33886**; on-board LM2596 5 V reg, **74LVC4245AD**
+  3.3↔5 V level translator, Schottky flyback diodes, per-channel FS fault, 2 A self-recovery fuse).
+  Input **7–40 V**; **single-motor output up to 5 A** (vendor) → **4.4 A stall is within rating**
+  (still current-limit + watch heat). M1/M2 = direction, PWMA = active-high PWM enable. (Alt on hand:
+  BTS7960 43A. Earlier "TB6612FNG" label was wrong — this board is MC33886-based.) See [WIRING.md](WIRING.md).
+- **Fault flag (FS):** MC33886 **FS = open-drain, active-LOW**, external pull-up to **5 V** (board's
+  1 k); reports under-voltage / short / over-temp. **Idle/OK = HIGH (~5 V), fault = LOW.** Read on a
+  5 V-tolerant MCU input (**PB7**), no internal pull-up; firmware trips PWM→0 and latches on LOW.
+  Source: NXP **MC33886** datasheet rev 10.0 (01/2014), FS pin description.
 - MCU: **STM32F429I-DISC1** (STM32F429ZI, 180 MHz, on-board 2.4" LCD for bench telemetry). Firmware
   follows the `rnd-southerniot/st-discovery` repo (arm-none-eabi + Makefile + st-flash).
 - Logic: driver inputs from STM32 **3.3 V** (PWM + DIR, EN, /D2; FS fault read-back). No on-motor logic.
@@ -44,7 +48,9 @@
 - The Waveshare board exposes no motor current. Sense it externally with a **TI INA238** — a **16-bit
   I²C power monitor** (⚠️ INA**238**, not INA228; ±40.96/±163.84 mV shunt FS, 85 V common-mode, signed
   current, + bus-voltage + die-temp). Across a **~5 mΩ** inline shunt (4.4 A → ~22 mV, within ±40.96 mV
-  high-res range). Read over **I²C** (not an ADC pin).
+  high-res range). Read over **I²C3** (PA8/PC9, shared with the board's STMPE811 touch). **Address
+  0x40** (A1=GND, A0=GND, per INA238 datasheet Table 6-2) — the collision-free pick vs the touch
+  controller at **0x41**; bus ≤400 kHz, reuse the board's existing I2C3 pull-ups.
 - Gives **synchronized V + I** → ideal for Simulink electrical-param ID (Ra, La, Kt). ⚠️ I²C read
   latency caps a *fast* inner current loop; fine for system-ID + a moderate torque loop + protection.
 

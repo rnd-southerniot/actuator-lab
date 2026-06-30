@@ -76,6 +76,8 @@ static volatile float g_kpp, g_kpi, g_kpd;   /* position PID */
 /* integrator / derivative memory (ISR-only) */
 static float g_vel_i, g_pos_i;
 static int32_t g_pos_prev;
+static float g_vel_filt;                     /* EMA-filtered velocity (ISR), used by the loop */
+static volatile int32_t g_vel_filt_cps;      /* snapshot for telemetry */
 
 /* ===== INA238 sampled values (updated in main loop, read in telemetry) ===== */
 static volatile int32_t g_ina_current_ma;
@@ -128,7 +130,15 @@ static int32_t enc_velocity_cps(void) {
   if ((now - last) > ENC_VEL_STALE_US) {
     return 0;
   }
-  return (int32_t)dir * (int32_t)(TIM2_TICK_HZ / interval);
+  /* Sanity-clamp: a very short interval (contact bounce / two edges in ~1 µs) yields a huge
+   * spurious cps — reject it so it can't kick the filter/loop. */
+  int32_t cps = (int32_t)dir * (int32_t)(TIM2_TICK_HZ / interval);
+  if (cps > VEL_MAX_CPS) {
+    cps = VEL_MAX_CPS;
+  } else if (cps < -VEL_MAX_CPS) {
+    cps = -VEL_MAX_CPS;
+  }
+  return cps;
 }
 
 /* ===== INA238 driver (blocking I2C — called only from main context, never the ISR) ===== */
@@ -268,6 +278,11 @@ static void control_isr(void) {
     fault_trip();
   }
 
+  /* Low-pass the (sanity-clamped) velocity every tick — keeps the estimate usable despite
+   * the coarse low-CPR T-method, stays warm while disarmed, and feeds telemetry. */
+  g_vel_filt += VEL_LPF_ALPHA * ((float)enc_velocity_cps() - g_vel_filt);
+  g_vel_filt_cps = (int32_t)g_vel_filt;
+
   if (g_state != ST_ARMED) {
     g_vel_i = 0.0f;
     g_pos_i = 0.0f;
@@ -287,6 +302,7 @@ static void control_isr(void) {
   }
 
   const float out_max = (float)PID_OUT_MAX;
+  const float dt = 1.0f / (float)CTRL_ISR_HZ; /* 1 ms — proper integral/derivative units */
 
   switch (g_mode) {
     case MODE_JOG:
@@ -299,9 +315,18 @@ static void control_isr(void) {
       break;
 
     case MODE_VEL: {
-      float err = (float)g_vel_sp_cps - (float)enc_velocity_cps();
-      g_vel_i = clampf(g_vel_i + err, -out_max, out_max); /* integral with clamp (anti-windup) */
-      float u = g_kvp * err + g_kvi * g_vel_i;
+      float err = (float)g_vel_sp_cps - g_vel_filt; /* filtered feedback */
+      g_vel_i += err * dt;
+      float i_term = g_kvi * g_vel_i;
+      /* anti-windup: clamp the integral TERM to the output range, back-calc the state */
+      if (i_term > out_max) {
+        i_term = out_max;
+        if (g_kvi > 1e-6f) g_vel_i = i_term / g_kvi;
+      } else if (i_term < -out_max) {
+        i_term = -out_max;
+        if (g_kvi > 1e-6f) g_vel_i = i_term / g_kvi;
+      }
+      float u = g_kvp * err + i_term;
       apply_output((int32_t)clampf(u, -out_max, out_max));
       break;
     }
@@ -309,10 +334,18 @@ static void control_isr(void) {
     case MODE_POS: {
       int32_t pos = g_enc_count;
       float err = (float)g_pos_sp_counts - (float)pos;
-      g_pos_i = clampf(g_pos_i + err, -out_max, out_max);
-      float deriv = (float)(pos - g_pos_prev);
+      g_pos_i += err * dt;
+      float i_term = g_kpi * g_pos_i;
+      if (i_term > out_max) {
+        i_term = out_max;
+        if (g_kpi > 1e-6f) g_pos_i = i_term / g_kpi;
+      } else if (i_term < -out_max) {
+        i_term = -out_max;
+        if (g_kpi > 1e-6f) g_pos_i = i_term / g_kpi;
+      }
+      float deriv = (float)(pos - g_pos_prev) / dt; /* counts/s */
       g_pos_prev = pos;
-      float u = g_kpp * err + g_kpi * g_pos_i - g_kpd * deriv;
+      float u = g_kpp * err + i_term - g_kpd * deriv;
       apply_output((int32_t)clampf(u, -out_max, out_max));
       break;
     }
@@ -335,10 +368,10 @@ static void print_status(void) {
   int32_t pos = g_enc_count;
   __enable_irq();
   int n = snprintf(line, sizeof(line),
-                   "STATUS,state=%s,mode=%s,pos=%ld,vel_cps=%ld,duty=%ld,"
+                   "STATUS,state=%s,mode=%s,pos=%ld,vel_cps=%ld,vfilt=%ld,duty=%ld,"
                    "cur_ma=%ld,bus_mv=%ld,ina_ok=%u,fs=%d\r\n",
                    kStateName[g_state], kModeName[g_mode], (long)pos, (long)enc_velocity_cps(),
-                   (long)g_last_duty, (long)g_ina_current_ma, (long)g_ina_bus_mv,
+                   (long)g_vel_filt_cps, (long)g_last_duty, (long)g_ina_current_ma, (long)g_ina_bus_mv,
                    (unsigned)g_ina_ok, fs_is_fault() ? 0 : 1);
   if (n > 0) {
     HAL_UART_Transmit(&huart1, (uint8_t *)line, (uint16_t)n, 20U);

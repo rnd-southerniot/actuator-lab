@@ -73,6 +73,8 @@ extern "C" {
 #define TIM2_TICK_HZ            1000000UL                     /* 1 µs edge timestamps (T-method) */
 #define ENC_COUNTS_PER_OUT_REV  288                           /* 4 CPR motor × 72 gear */
 #define ENC_VEL_STALE_US        100000UL                      /* >100 ms since last edge ⇒ vel = 0 */
+#define VEL_MAX_CPS             700L                          /* sanity clamp (free speed ≈600 cps) — rejects bounce spikes */
+#define VEL_LPF_ALPHA           0.10f                         /* EMA on velocity feedback (~16 Hz @ 1 kHz loop) */
 #define TELEM_PERIOD_MS         100U                          /* STATUS line cadence */
 #define CTRL_ISR_HZ             1000U                         /* TIM6 PID loop rate */
 

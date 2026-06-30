@@ -1,12 +1,21 @@
 # RESULTS — REV Core Hex Motor
 
-Characterization from the commissioning run. **Pending — no bench data yet** (Phases 0–7 not started).
-Fill from [COMMISSIONING-LOG.md](COMMISSIONING-LOG.md) as phases pass; model results in
+Characterization from the commissioning run. Fill from
+[COMMISSIONING-LOG.md](COMMISSIONING-LOG.md) as phases pass; model results in
 [docs/MODELING.md](docs/MODELING.md).
 
 ## Summary
-- Date / rig: — / STM32 Discovery (‹variant›) + MC33886
-- Status: ⛔ not started
+- Date / rig: 2026-07-01 / STM32F429I-DISC1 + Waveshare 2× MC33886 + Adafruit INA238 (15 mΩ)
+- Status: ⏳ Phases 0–3 PASS; open- & closed-loop velocity working (Phase 5 in progress)
+
+## Tuned control gains (firmware `test/`, branch rev-core-hex-firmware)
+- **PWM: 1 kHz** (NOT 20 kHz — MC33886 enable limit). Duty range 0–999 (PWM_ARR).
+- **Velocity loop (`gainv kp ki`): kp=2, ki=20** → stable, well-damped; `vfilt` holds setpoint within
+  ~2 cps, duty steady (e.g. 80 cps → duty ≈ 204). dt-scaled integral + term-clamp anti-windup.
+- **Velocity feedback:** raw T-method clamped to ±700 cps, EMA-filtered (VEL_LPF_ALPHA=0.10, ~16 Hz).
+  Essential — raw low-CPR velocity is too noisy to close a loop on (caused violent limit cycle).
+- Position loop (`gainp kp ki kd`): not yet tuned.
+- Open-loop: ~250 duty (25%) → ~110 cps; breakaway needs the proper 1 kHz drive.
 
 ## Calibration
 - **Unit constant:** 288 counts = 1.000 output rev (vendor) — bench-verify at Phase 4.

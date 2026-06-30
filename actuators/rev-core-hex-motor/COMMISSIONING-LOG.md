@@ -60,21 +60,45 @@ Console RX confirmed (VCP bidirectional): `reset` → `OK reset`.
    Note: ~25% duty draws ~0.5 A and the 18650+BMS rail dips to ~8–10 V (no bulk cap yet) — fine, but a
    ~1000–2200 µF cap across VIN would steady it and soften spin-up inrush (one inrush fault seen at 100%).
 
-## Phase 4 — Scaling / calibration  ⚠️ go-ahead
-- Unit constant: **288 counts = 1.000 output rev** → measured against an output-shaft mark: ______
+## Phase 4 — Scaling / calibration  ✅ 2026-07-01 (go-ahead given)
+- Unit constant: **288 counts = 1.000 output rev** → **CONFIRMED.** Measured by **multi-rev
+  accumulation** (more robust than discrete landings — see method note): a gentle `vel 100` spin moved
+  **896 counts**; operator read the output-shaft mark as **3 full turns + ~40° past start** = 3.111 rev.
+  → **896 / 3.111 = 288.0 counts/rev.** Predicted offset for 288 cnt/rev was ~40°, observed ~40°.
+- **Uncertainty ≈ ±0.9%** (≈ ±3 counts), from the ~±10° eyeball angle read over 3.11 rev.
+- **Method note:** the discrete 90°/180°/360° "land-on-mark" rows below were **superseded** — the
+  position loop has a ~±13-count stiction/backlash deadband (see Phase 4 findings) that makes
+  single-move landings unreliable, and aggressive position moves FS-trip the rail. The multi-rev
+  velocity method decouples the calibration from stop precision and amplifies any per-rev error.
 | Magnitude | Predicted | Measured | Pass? |
 |---|---|---|---|
-| small (e.g. 72 counts = 90°) | | | ☐ |
-| mid (144 counts = 180°) | | | ☐ |
-| full rev (288 counts) | lands on mark | | ☐ |
+| multi-rev accumulation | 896 ct → 3 turns + ~40° (if 288 cnt/rev) | 3 turns + ~40° → **288.0 cnt/rev** | ✅ |
+| ~~discrete 72/144/288 landings~~ | superseded by multi-rev (deadband makes landings ±13 ct) | n/a | — |
 
-## Phase 5 — Speed survey  ⚠️ go-ahead
-- Closed-loop velocity (input-capture T/M-method). Sweep the band toward 125 RPM free speed.
+### ⚠️ Phase 4 finding — position loop has a stiction/backlash deadband (logged for the next bring-up)
+Firmware `MODE_POS` is a **direct position→duty PID** (not cascaded). On-bench tuning (`gainp`):
+- `kp=4, ki=0` → clean, no overshoot, but **stalls ~28 ct short** (proportional deadband; final duty
+  112 < stiction breakaway ~180).
+- `kp=4, ki=20` → **overshoots ~28 ct**, reverses, **limit-cycles**.
+- `kp=2, ki=6` → gentle approach but still **overshoots ~26 ct**, then stiction *holds* it there until
+  the integral winds to ~−180 duty and it crawls back → slow limit cycle.
+- **Net:** effective positioning deadband ≈ **±13 counts (±16° at the output)**. Breakaway ≈ 180 duty
+  (18%). **Recommended fix (next firmware rev):** cascade position→the (already-good) velocity loop, or
+  add velocity + stiction feedforward. Out of scope for this commissioning pass.
+
+## Phase 5 — Speed survey  ⏳ PARTIAL 2026-07-01 — **supply-limited** (go-ahead given)
+- Closed-loop velocity. **Low speed validated; mid/high blocked by the bench supply (not the controller).**
+- **Root cause of the block:** the bare **18650 + BMS supply (no bulk cap) sags under load and the
+  MC33886 asserts an undervoltage FS trip → firmware faults safe.** The trip threshold *tightened as the
+  cell discharged* over the session: `vel 288` (60 RPM) tripped after ~1 s at ~1.2 A / rail ≈ 10 V; later
+  even `vel 100` (which held cleanly for 9 s early on) tripped in <1 s. **Action item: add a
+  1000–2200 µF cap across VIN and/or use a stiff bench PSU**, then re-run mid/high. (Same fix flagged in
+  Phase 3 findings.)
 | Speed (RPM out) | Smooth? | Vel-est noise | Pass? |
 |---|---|---|---|
-| low (~10) | | | ☐ |
-| mid (~60) | | | ☐ |
-| high (~120, band limit) | | | ☐ |
+| low (~10 → `vel 48`) | yes — vfilt holds 47 cps, range [46..50] | raw vel_cps ±3 cps (span 6) | ✅ |
+| mid (~60 → `vel 288`) | loop **reached & held 288 cps** ~1 s, then **FS-tripped** (rail ≈10 V, 1.2 A) | n/a | ⚠️ supply-limited |
+| high (~120, band limit) | not attempted — same supply limit (more current) | — | ⛔ blocked |
 
 ## Phase 6 — Repeatability  ⚠️ go-ahead
 | Metric | Expected | Measured | Pass? |
@@ -83,14 +107,21 @@ Console RX confirmed (VCP bidirectional): `reset` → `OK reset`.
 | Drift (account for backlash) | bounded | | ☐ |
 | Fault events | 0 | | ☐ |
 
-## Phase 7 — Fault handling & recovery  ⚠️ go-ahead
-- Induce a fault (locked-output stall and/or MC33886 over-current/over-temp); verify detection +
-  fail-safe + recovery.
+## Phase 7 — Fault handling & recovery  ⏳ PARTIAL 2026-07-01 — fail-safe + recovery demonstrated (incidentally)
+- Not a deliberate Phase-7 run, but the **MC33886 undervoltage FS trip** induced by rail sag (Phase 5)
+  exercised the whole chain **repeatably** this session, so it is recorded here.
+- **Fault source seen:** FS1 (PB7) asserted LOW on supply undervoltage. NB: the firmware's *only* path to
+  `ST_FAULT` is the FS pin (EXTI + 1 kHz backstop poll); there is **no software over-current trip**, so an
+  INA238 current limit would NOT latch a fault on its own — worth adding for the stall case below.
+- **Not yet exercised:** deliberate locked-output **stall** (mechanical) and MC33886 **over-temp**.
 | Check | Expected | Measured | Pass? |
 |---|---|---|---|
-| Drive/firmware flags fault | FS asserts and/or current-limit trips PWM→0 | | ☐ |
-| Fails safe | motor stops, no runaway | | ☐ |
-| Reset/recover | clear cause → re-enable → fault clears | | ☐ |
-| Healthy motion resumes | small move, no fault | | ☐ |
+| Drive/firmware flags fault | FS asserts and/or current-limit trips PWM→0 | FS LOW → `ST_FAULT` via EXTI, latched | ✅ (FS path) |
+| Fails safe | motor stops, no runaway | PWM→0 immediately; encoder count preserved; no runaway | ✅ |
+| Reset/recover | clear cause → re-enable → fault clears | `reset` (FS clear) → DISARMED → `arm` → ARMED, repeatably | ✅ |
+| Healthy motion resumes | small move, no fault | low-speed motion resumed post-reset | ✅ |
+| Deliberate stall / over-temp | FS or (future) current-limit trips | not attempted this session | ☐ |
 
 **Result:** ☐ ✅ validated (Phase 7 passed) — update catalog row.
+**Session 2026-07-01 outcome:** Phase 4 ✅, Phase 5 ⏳ (supply-limited), Phase 7 ⏳ (FS path proven;
+stall/over-temp pending). **Blocker for Phases 5–7 completion = stiff VIN supply (bulk cap / bench PSU).**

@@ -12,7 +12,7 @@ MATLAB/Simulink plant model + system-ID workflow.
 | Doc scaffold | ✅ specs/wiring/safety/modeling drafted (2026-06-29) | — |
 | Pinouts (motor / encoder) | ✅ confirmed from REV image | [WIRING.md](WIRING.md) |
 | F429 pin map (proposed, reuses st-discovery) | ⏳ pin-conflict audit + Waveshare header pins | [WIRING.md](WIRING.md) |
-| Bench bring-up (Phases 0–7) | ⛔ not started | — |
+| Bench bring-up (Phases 0–7) | ⏳ P0–4 ✅ · P5 partial (supply-limited) · P7 FS-path ✅ · P6 pending | [COMMISSIONING-LOG.md](COMMISSIONING-LOG.md) |
 | Simulink model + system-ID | ⛔ not started | [docs/MODELING.md](docs/MODELING.md) |
 
 Status legend in [../../docs/CONVENTIONS.md](../../docs/CONVENTIONS.md). **Firmware lives here in

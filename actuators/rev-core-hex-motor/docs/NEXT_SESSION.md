@@ -1,56 +1,48 @@
 # NEXT SESSION — REV Core Hex Motor
 
-Handoff note. Written 2026-06-29 (scaffold only — no hardware yet). Read first, then resolve the TBDs.
+Handoff note. Updated **2026-07-01** after the Phase 4/5/7 bench session. Read first.
 
 ## Where we are
 | # | Item | State |
 |---|---|---|
-| 1 | Driver = Waveshare RPi Motor Driver Board (2× MC33886); MCU = STM32F429I-DISC1 | ✅ |
-| 2 | Doc scaffold (SPECS/WIRING/SAFETY/MODELING/LOG) | ✅ 2026-06-29 |
-| 3 | Motor/encoder pinouts (REV image) + F429 pin map (reuses st-discovery) | ✅ audit closed 2026-06-29 |
-| 4 | Firmware (st-discovery Makefile project) | ✅ Steps 1–4 compile clean (boots DISARMED/PWM=0; INA238 + arm/fault FSM + FS-trip + gated console + 1 kHz PID + optional LCD live view; expert-reviewed). **Firmware desk-complete.** Bench Phases 0–7 next (needs hardware + written go-ahead for motion). |
-| 5 | Bench bring-up (Phases 0–7) | ⛔ not started |
-| 6 | Simulink model + system-ID | ⛔ not started |
+| 1 | Hardware (F429I-DISC1 + Waveshare 2×MC33886 + Adafruit INA238 15 mΩ) | ✅ live, on `/dev/cu.usbmodem1103` |
+| 2 | Firmware (`test/`, branch `rev-core-hex-firmware`) | ✅ built & flashed; boots DISARMED/PWM=0 |
+| 3 | Phase 0–3 (safety → first motion, both dir) | ✅ |
+| 4 | **Phase 4 (calibration)** — 288 cnt = 1.000 output rev | ✅ **bench-verified** (multi-rev: 896 ct = 3 turns+40° → 288.0) |
+| 5 | **Phase 5 (speed survey)** | ⏳ low ✅; **mid/high blocked — supply sag FS-trips** |
+| 6 | Phase 6 (repeatability) | ⛔ blocked (needs pos loop + stiff supply) |
+| 7 | **Phase 7 (faults)** | ⏳ FS-trip fail-safe + recovery proven; stall/over-temp pending |
+| 8 | Simulink model + system-ID | ⛔ not started |
 
-## Exact next steps (no motion — desk + Phase 0–2)
-### Step A — close the wiring (desk) ✅ DONE 2026-06-29
-- ✅ **Pin-conflict audit closed** (ST UM1670 + Zephyr F429I-DISC1 board doc): motor/encoder/USART1
-  pins free; **I2C3 PA8/PC9 = STMPE811 touch bus @0x41** → INA238 coexists at **0x40**; **FS1 → PB7**
-  (free, 5 V-tolerant). Full map in [WIRING.md](../WIRING.md).
-- ✅ Waveshare header pins + truth table resolved: PWMA=Pin37, M1=Pin38, M2=Pin40, 3V3=Pin1, GND=Pin34/39.
-- ✅ **FS1 polarity:** MC33886 FS = open-drain, active-LOW, 1k→5 V (idle=HIGH, fault=LOW) → PB7 floating
-  input, trip PWM→0 on LOW. (NXP MC33886 datasheet rev 10.0.)
-- ✅ **INA238 = Adafruit #6349** — **onboard 15 mΩ** (no external shunt); in-line in the M1 lead via
-  `VIN+/VIN-`; **address 0x40**; reuse board's I2C3 pull-ups (≤400 kHz). **Firmware fixed to ADCRANGE=0
-  + SHUNT_CAL=3072** (15 mΩ; the prior 5 mΩ/ADCRANGE=1 values would read 3× low and clip at stall).
-- ⏳ **Bench-confirm (Phase 0–2):** PB7 HIGH idle / LOW on forced FS trip; meter board I2C3 pull-up before
-  adding INA238; verify FS1 pad = channel-A fault.
+## THE blocker (fix this first — unblocks Phases 5, 6, 7)
+**Bare 18650 + BMS supply sags under load → MC33886 undervoltage FS trip.** It tripped `vel 288`
+(60 RPM) after ~1 s at ~1.2 A / rail ≈ 10 V, and tightened as the cell drained (even `vel 100`
+eventually tripped). **Action:**
+- Add a **1000–2200 µF electrolytic across VIN** (also softens spin-up inrush), and/or
+- Drive from a **stiff bench PSU** current-limited to ~3 A (≤ 4.4 A stall) for the speed survey.
 
-### Step B — firmware (in this folder's `test/`)
-Author the project **here** as an st-discovery-style Makefile build (CubeMX + Makefile + `st-flash`;
-reuse the DBH-12V PWM/IN1/IN2 + PC4/PC5 encoder map; model the `balance-mvp` control-loop structure).
-Pieces: TIM3 PWM ~1 kHz, **EXTI A/B decode + TIM2 edge-timestamp velocity**, **INA238 current/V over
-I2C3**, TIM6/7 1 kHz PID ISR, FS-trip, USART1 telemetry, LCD live plot. **Boots PWM = 0.**
+Then re-run **Phase 5 mid/high** (`vel 288`, `vel 576`) and **Phase 6** out-and-back cycles.
 
-### Step C — Phases 0–2 (read-only / first energize)
-Wire per WIRING.md, current-limit ~1.5 A. Encoder hand-check (≈288 counts/out-rev), FS clear, ADC scale.
-**Phases 3–7 need written go-ahead.**
+## Firmware item — position loop is not production-ready
+`MODE_POS` is a **direct position→duty PID**; with this motor's stiction (breakaway ≈180 duty) +
+backlash + 288 CPR it has a **±13-count (±16°) deadband** and limit-cycles (see COMMISSIONING-LOG
+Phase 4 finding). Before trusting position control (Phase 6):
+- **Cascade position → the existing velocity loop** (preferred), or add velocity + stiction feedforward.
+- Consider adding a **software over-current trip** off the INA238 (today the *only* fault path is the
+  FS pin — a mechanical stall with FS healthy would NOT latch a fault).
 
-## Gotchas (anticipated — confirm on the bench)
-- **Velocity from 288 CPR is coarse** — <1 count/sample at 1 kHz near top speed. Use edge timestamps
-  (TIM2), not counts/sample. (Core design constraint — see MODELING.md.)
-- **Driving a Pi HAT from the F429:** feed the RPi-header logic pins at 3.3 V **and supply 3V3 to the
-  board** (74LVC8T245 VCA ref); FS1 is pulled to **5 V** → 5 V-tolerant pin or divider.
-- **Board rated 5 A/ch** (MC33886) — 4.4 A stall is within rating but close; current-limit + trip on FS.
-- **Naming collision:** board M1/M2 **screw terminals = motor OUTPUT**; M1/M2 **header pins = direction INPUT**.
-- Gearbox **backlash** dominates small-signal position accuracy — model it.
-- Encoder + its supply are **3.3 V** — never 5 V/12 V.
+## Bench reminders
+- **Gains are NOT persisted** — firmware boots all gains to 0. Each session: `arm`, then
+  `gainv 2 20` (velocity). Position needs `gainp` tuned per the cascade fix above.
+- INA238 current/bus are **unreliable under PWM** (CM dv/dt) — trust a multimeter during drive; the
+  readings are good at rest/DC (bus reads ~12.2 V at rest, matches meter).
+- Console verbs: `status arm disarm stop reset jog <duty> <ms> vel <cps> pos <counts> gainv gainp`.
+  `cps = RPM/60 × 288` (10/60/120 RPM = 48/288/576 cps). Telemetry @115200 8N1 on USART1.
+- Power down: **motor 12 V supply OFF first**, then STM32/USB.
 
 ## One-line resume
 ```bash
-# Step A done; st-discovery cloned at ~/Developer/projects/robotics/st-discovery (untracked reference).
-# NEXT = Step B (firmware): scaffold test/ by mirroring firmware/balance-mvp-f429i-disc1 (Makefile +
-# linker + startup + HAL config), apply the WIRING.md pin map, boot PWM=0. SHARED_DIR HAL lives in
-# st-discovery/firmware/lcd-hello-f429i-disc1/Drivers (balance-mvp's Makefile points there).
-cd /Users/robotics/Developer/projects/robotics/actuator-lab/actuators/rev-core-hex-motor && $EDITOR WIRING.md test/README.md
+# Add VIN bulk cap or switch to a bench PSU, then re-run Phase 5 mid/high + Phase 6.
+# Serial helper used last session: scratchpad revcon.py (pyserial, 115200) — send/seq/monitor.
+cd /Users/robotics/Developer/projects/robotics/actuator-lab/actuators/rev-core-hex-motor && $EDITOR COMMISSIONING-LOG.md RESULTS.md
 ```

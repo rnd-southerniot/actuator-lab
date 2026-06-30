@@ -175,12 +175,13 @@ static void INA238_Init(void) {
     Error_Handler();
   }
 
-  /* Presence check, then configure: high-res ±40.96 mV range + shunt cal. A missing/mis-wired
-   * INA238 is non-fatal here (telemetry shows ina_ok=0); it must NOT block boot-to-idle. */
+  /* Presence check, then configure: ±163.84 mV range (ADCRANGE=0, ≤10 A) + shunt cal for the
+   * Adafruit 15 mΩ module. A missing/mis-wired INA238 is non-fatal (telemetry ina_ok=0); must
+   * NOT block boot-to-idle. */
   uint16_t id = 0;
   g_ina_ok = 0;
   if (ina238_read(INA238_REG_MANUF_ID, &id) == HAL_OK && id == INA238_MANUF_ID) {
-    if (ina238_write(INA238_REG_CONFIG, INA238_CONFIG_ADCRANGE1) == HAL_OK &&
+    if (ina238_write(INA238_REG_CONFIG, INA238_CONFIG_VALUE) == HAL_OK &&
         ina238_write(INA238_REG_SHUNT_CAL, INA238_SHUNT_CAL_VALUE) == HAL_OK) {
       g_ina_ok = 1;
     }

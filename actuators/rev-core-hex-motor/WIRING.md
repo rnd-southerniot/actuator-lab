@@ -1,6 +1,7 @@
 # WIRING — REV Core Hex Motor (MC33886 + STM32 Discovery)
 
 Wire only with power OFF + discharge wait. Confirm every value against [SPECS.md](SPECS.md).
+Block diagram: [docs/WIRING-DIAGRAM.md](docs/WIRING-DIAGRAM.md).
 Board: **STM32F429I-DISC1** (F429ZI). Encoder/motor pinouts confirmed from the REV image.
 **Pin-conflict audit CLOSED 2026-06-29** (sources: ST UM1670 + Zephyr F429I-DISC1 board doc): motor/
 encoder pins (PB4/PA5/PA7/PC4/PC5) and USART1 (PA9/PA10) are free of SDRAM-FMC / LTDC / SPI5-gyro / USB;
@@ -58,25 +59,27 @@ Direction / speed (sign-magnitude):
 > USB-powered; don't wire the board's 5 V header pin to the F429). FS1 is a separate pad → 5 V-tolerant
 > pin or divider; trip PWM→0 on fault. (Motor B / left = M3 Pin 31, PWMB Pin 32, M4 Pin 33 — unused.)
 
-## CURRENT SENSE — TI INA238 (I²C power monitor, external)
+## CURRENT SENSE — Adafruit INA238 breakout (#6349, onboard 15 mΩ shunt)
+
+The module carries the motor current through its **onboard 15 mΩ 0.1%** shunt — **no external shunt,
+no Kelvin wiring.** Put the breakout **in-line in the board's M1 output lead** via its `VIN+ / VIN-`
+terminal block; talk to it over I²C (STEMMA QT or header).
 
 ```
-   board OUT1 (M+) ──►[ Rshunt ~5 mΩ ]──► motor M+     (in-line; INA238 reads SIGNED current)
-                        │            │
-                  INA238 IN+      INA238 IN-
-                  INA238 VBUS ──► 12 V node            (bus-voltage readout, for V·I param-ID)
-                  INA238 SCL/SDA ─── I²C ───► STM32 I2C3 (SCL PA8, SDA PC9); board already pulls up
-                                       I2C3 for the STMPE811 touch — reuse those, do NOT stack a 2nd set
-                                       (verify value via UM1670; target 2.2–4.7k effective). Bus ≤400 kHz.
-                  INA238 A0/A1 ─── BOTH to GND → address 0x40 (Table 6-2). STMPE811 touch sits at 0x41
-                                       (=A1 GND/A0 VS) → 0x40 is the collision-free pick; touch left idle.
-   Rshunt ~5 mΩ → 4.4 A ≈ 22 mV, within INA238 ±40.96 mV high-res range. Kelvin-sense the shunt.
+   board M1 (Motor-A OUT) ──► INA238 VIN+ ─[onboard 15 mΩ]─ VIN- ──► REV motor M+
+   board M2 (Motor-A OUT) ──────────────────────────────────────────► REV motor M-
+
+   INA238 SCL ──► STM32 PA8 (I2C3)    reuse the board's I2C3 pull-ups (touch bus); ≤400 kHz
+   INA238 SDA ──► STM32 PC9 (I2C3)
+   INA238 VCC ──► 3V3  (module runs 3–5 V)     INA238 GND ──► GND  (single common ground)
+   INA238 addr ─ default 0x40   (STMPE811 touch = 0x41, left idle)
 ```
 
-> INA238 returns **signed current + bus voltage + die-temp** over I²C → feeds the torque loop, the
-> fault trip, and (synchronized V,I) the Simulink param-ID. Use INA238 averaging to reject PWM noise.
-> ⚠️ Shunt placement: a PWM'd motor lead has high CM dv/dt — consider low-side return instead; pick on
-> the bench. If a fast inner current loop needs more BW than I²C allows, fall back to analog INA240→ADC.
+> Reads **signed current + bus voltage (internal) + die-temp** over I²C → torque loop + fault trip +
+> (synchronized V,I) Simulink param-ID. ⚠️ **Set ADCRANGE = 0 (±163.84 mV, up to 10 A):** 4.4 A ×
+> 15 mΩ = 66 mV exceeds the ±40.96 mV (2.75 A) range and would **clip at stall**. The M1 lead is
+> PWM-switched (high CM dv/dt) and reverses → use INA238 averaging; if a fast inner current loop needs
+> more BW than I²C allows, fall back to an analog INA240→ADC.
 
 ## ENCODER — quadrature (4-pin JST-PH)
 
@@ -119,7 +122,7 @@ Direction / speed (sign-magnitude):
 | Encoder A ← Ch A | `PC4` — GPIO/EXTI (pull-up) | reuse; native 3.3 V |
 | Encoder B ← Ch B | `PC5` — GPIO/EXTI (pull-up) | reuse |
 | Velocity timebase | `TIM2` (32-bit) free-run | edge timestamps (T/M-method) |
-| Current sense (INA238) | `I2C3` — SCL `PA8` / SDA `PC9` | shared w/ on-board STMPE811 touch @ 0x41 → INA238 @ **0x40** (A0=A1=GND); reuse board's I2C3 pull-ups, ≤400 kHz |
+| Current sense (INA238 #6349) | `I2C3` — SCL `PA8` / SDA `PC9` | Adafruit INA238, **onboard 15 mΩ inline** in the M1 lead (no external shunt); @ **0x40** (touch=0x41 idle); reuse board's I2C3 pull-ups, ≤400 kHz; **firmware ADCRANGE=0** (±163.84 mV, ≤10 A) |
 | Control ISR | `TIM6`/`TIM7` (basic) @ 1 kHz | PID loop |
 | UART telemetry | `PA9`/`PA10` — USART1 | reuse; 115200 8N1 |
 | LCD telemetry (optional) | LTDC (board-reserved) | reuse st-discovery LCD-plot for live traces |

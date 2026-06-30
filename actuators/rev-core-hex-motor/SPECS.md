@@ -48,12 +48,15 @@
   3.3 V → wires straight to the F429 (no level shift).
 
 ## Current sensing (for closed-loop / system-ID — per project goal)
-- The Waveshare board exposes no motor current. Sense it externally with a **TI INA238** — a **16-bit
-  I²C power monitor** (⚠️ INA**238**, not INA228; ±40.96/±163.84 mV shunt FS, 85 V common-mode, signed
-  current, + bus-voltage + die-temp). Across a **~5 mΩ** inline shunt (4.4 A → ~22 mV, within ±40.96 mV
-  high-res range). Read over **I²C3** (PA8/PC9, shared with the board's STMPE811 touch). **Address
-  0x40** (A1=GND, A0=GND, per INA238 datasheet Table 6-2) — the collision-free pick vs the touch
-  controller at **0x41**; bus ≤400 kHz, reuse the board's existing I2C3 pull-ups.
+- The Waveshare board exposes no motor current. Sense it with the **Adafruit INA238 breakout (#6349)**
+  — a 16-bit I²C monitor (⚠️ INA**238**, not INA228) with an **onboard 15 mΩ 0.1% shunt** (so **no
+  external shunt / Kelvin wiring**). Put the breakout **in-line in the M1 lead** via its `VIN+/VIN-`
+  terminal block; signed current; VBUS read internally. Rated **±10 A** in the ±163.84 mV range
+  (±2.75 A in ±40.96 mV); **85 V common-mode**.
+- ⚠️ **Use ADCRANGE = 0 (±163.84 mV):** 4.4 A × 15 mΩ = **66 mV** exceeds the ±40.96 mV (2.75 A) range
+  and would clip at stall.
+- Read over **I²C3** (PA8/PC9, shared with the board's STMPE811 touch). **Address 0x40** (default) —
+  collision-free vs the touch controller at **0x41**; bus ≤400 kHz, reuse the board's I2C3 pull-ups.
 - Gives **synchronized V + I** → ideal for Simulink electrical-param ID (Ra, La, Kt). ⚠️ I²C read
   latency caps a *fast* inner current loop; fine for system-ID + a moderate torque loop + protection.
 

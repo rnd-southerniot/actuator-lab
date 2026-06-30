@@ -81,8 +81,10 @@ extern "C" {
 #define INA238_REG_CURRENT      0x07U
 #define INA238_REG_MANUF_ID     0x3EU
 #define INA238_MANUF_ID         0x5449U   /* ASCII "TI" — presence check */
-#define INA238_CONFIG_ADCRANGE1 0x0010U   /* CONFIG bit4=1 → ±40.96 mV high-res */
-#define INA238_SHUNT_CAL_VALUE  4096U     /* 5 mΩ shunt, CURRENT_LSB 250 µA, ×4 for ADCRANGE=1 */
+#define INA238_CONFIG_VALUE     0x0000U   /* ADCRANGE=0 → ±163.84 mV (≤10 A). Adafruit #6349 onboard
+                                             15 mΩ: 4.4 A stall = 66 mV would CLIP the ±40.96 mV range */
+#define INA238_SHUNT_CAL_VALUE  3072U     /* Adafruit 15 mΩ, CURRENT_LSB 250 µA, ADCRANGE=0
+                                             (= 819.2e6 × 250e-6 × 0.015); current_mA = reg/4 unchanged */
 /* Readback scaling (chosen so both are exact small-integer ops):
  *   current_mA = (int16)CURRENT × 0.25  = CURRENT / 4
  *   bus_mV     = VBUS × 3.125 mV         = VBUS × 25 / 8                                        */

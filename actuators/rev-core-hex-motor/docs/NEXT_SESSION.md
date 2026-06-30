@@ -20,8 +20,9 @@ Handoff note. Written 2026-06-29 (scaffold only — no hardware yet). Read first
 - ✅ Waveshare header pins + truth table resolved: PWMA=Pin37, M1=Pin38, M2=Pin40, 3V3=Pin1, GND=Pin34/39.
 - ✅ **FS1 polarity:** MC33886 FS = open-drain, active-LOW, 1k→5 V (idle=HIGH, fault=LOW) → PB7 floating
   input, trip PWM→0 on LOW. (NXP MC33886 datasheet rev 10.0.)
-- ✅ **INA238:** ~5 mΩ shunt, **address 0x40** (A0=A1=GND, Table 6-2). Shunt placement (motor-lead vs
-  low-side return) deferred to the bench — pick per PWM CM-noise. Reuse board's I2C3 pull-ups (≤400 kHz).
+- ✅ **INA238 = Adafruit #6349** — **onboard 15 mΩ** (no external shunt); in-line in the M1 lead via
+  `VIN+/VIN-`; **address 0x40**; reuse board's I2C3 pull-ups (≤400 kHz). **Firmware fixed to ADCRANGE=0
+  + SHUNT_CAL=3072** (15 mΩ; the prior 5 mΩ/ADCRANGE=1 values would read 3× low and clip at stall).
 - ⏳ **Bench-confirm (Phase 0–2):** PB7 HIGH idle / LOW on forced FS trip; meter board I2C3 pull-up before
   adding INA238; verify FS1 pad = channel-A fault.
 

@@ -34,7 +34,9 @@
 - MCU: **STM32F429I-DISC1** (STM32F429ZI, 180 MHz, on-board 2.4" LCD for bench telemetry). Firmware
   follows the `rnd-southerniot/st-discovery` repo (arm-none-eabi + Makefile + st-flash).
 - Logic: driver inputs from STM32 **3.3 V** (PWM + DIR, EN, /D2; FS fault read-back). No on-motor logic.
-- PWM frequency: target **~20 kHz** (above audible) — confirm against MC33886 slew/transition limits.
+- PWM frequency: **~1 kHz** (PWMA gates the MC33886 *enable*). **Bench-confirmed 2026-07-01:** the
+  MC33886 will NOT switch its enable at 20 kHz (outputs float, no drive); Waveshare's demo uses 500 Hz.
+  Earlier "~20 kHz" target was wrong. See [COMMISSIONING-LOG.md](COMMISSIONING-LOG.md) Phase 3.
 
 ## Feedback / encoder
 - Built-in **magnetic quadrature** encoder; works at **3.3 V or 5 V** logic (power from STM32 3V3).

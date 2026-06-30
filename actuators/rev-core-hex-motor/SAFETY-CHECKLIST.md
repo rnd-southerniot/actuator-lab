@@ -8,7 +8,7 @@ Refs: REV Core Hex Motor docs (2026-06-29); **Waveshare RPi Motor Driver Board**
 
 - STM32 3.3 V → board header **PWMA (Pin 37) + M1 (Pin 38) + M2 (Pin 40)** through the **74LVC8T245**
   translator; **supply 3V3 to Pi-header Pin 1** (translator A-side / VCCA ref) + shared GND (Pin 34/39). PWM
-  ~20 kHz; M1/M2 = direction, PWMA = active-high enable. **Power-select switch OFF** (board must not
+  ~1 kHz; M1/M2 = direction, PWMA = active-high enable. **Power-select switch OFF** (board must not
   back-feed 5 V to the F429). ☐
 
 ## B. Comms / tuning port level

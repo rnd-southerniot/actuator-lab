@@ -62,8 +62,14 @@ extern "C" {
 /* TIM2 & TIM3 are on APB1: at SYSCLK 180 MHz with APB1 prescaler /4, the APB1 timer
  * clock is 90 MHz (x2 rule). */
 #define TIM_APB1_HZ             90000000UL
-#define PWM_FREQ_HZ             20000UL                       /* ~20 kHz, above audible */
-#define PWM_ARR                 ((TIM_APB1_HZ / PWM_FREQ_HZ) - 1U) /* = 4499 → 4500 duty steps */
+/* PWMA drives the MC33886 ENABLE; that bridge can't switch its enable at 20 kHz (Waveshare's
+ * own demo PWMs it at 500 Hz). Confirmed on the bench: 20 kHz → bridge never enables, outputs
+ * float to +12 V, no drive; DC/low-freq enable → motor runs. Run ~1 kHz via a prescaler
+ * (TIM3 is 16-bit, so 90 MHz/1 kHz won't fit in ARR without one). */
+#define PWM_FREQ_HZ             1000UL
+#define PWM_TIM_CLK_HZ          1000000UL                     /* TIM3 clock after prescaler = 1 MHz */
+#define PWM_PSC                 ((TIM_APB1_HZ / PWM_TIM_CLK_HZ) - 1U)  /* = 89 */
+#define PWM_ARR                 ((PWM_TIM_CLK_HZ / PWM_FREQ_HZ) - 1U)  /* = 999 → 1 kHz, 1000 duty steps */
 #define TIM2_TICK_HZ            1000000UL                     /* 1 µs edge timestamps (T-method) */
 #define ENC_COUNTS_PER_OUT_REV  288                           /* 4 CPR motor × 72 gear */
 #define ENC_VEL_STALE_US        100000UL                      /* >100 ms since last edge ⇒ vel = 0 */

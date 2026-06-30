@@ -55,7 +55,7 @@ there is **no external shunt** — the motor lead simply passes through the modu
 ### (B) Control — STM32 (3.3 V) → board 40-pin header  *(physical pin #)*
 | STM32 | Signal | Board header pin |
 |---|---|---|
-| `PB4` (TIM3_CH1, ~20 kHz) | PWM enable | **PWMA = Pin 37** |
+| `PB4` (TIM3_CH1, ~1 kHz) | PWM enable | **PWMA = Pin 37** |
 | `PA5` (GPIO out) | direction | **M1 = Pin 38** |
 | `PA7` (GPIO out) | direction | **M2 = Pin 40** |
 | `3V3` | translator ref (VCCA) | **3V3 = Pin 1** |

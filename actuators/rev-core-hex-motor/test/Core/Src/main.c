@@ -526,7 +526,7 @@ static void MotorDrive_Init(void) {
 
   __HAL_RCC_TIM3_CLK_ENABLE();
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 0;
+  htim3.Init.Prescaler = PWM_PSC; /* 1 MHz timer clock → 1 kHz PWM (MC33886 enable limit) */
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim3.Init.Period = PWM_ARR;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;

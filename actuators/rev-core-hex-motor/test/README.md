@@ -8,7 +8,7 @@ map. Target: **STM32F429I-DISC1** + **Waveshare RPi Motor Driver Board (2× MC33
 
 ## Build status — staged (compile-gated)
 - **Step 1 ✅ skeleton:** 180 MHz clock, motor driver forced idle, heartbeat LED. Boots PWM = 0.
-- **Step 2 ✅ I/O bring-up:** TIM3_CH1 PWM (PB4, ~20 kHz, **started at 0% = coast**), DIR (PA5/PA7),
+- **Step 2 ✅ I/O bring-up:** TIM3_CH1 PWM (PB4, ~1 kHz, **started at 0% = coast**), DIR (PA5/PA7),
   FS input (PB7, read-only), EXTI quadrature encoder (PC4/PC5) + TIM2 1 µs edge-timestamp velocity,
   USART1 115200 `STATUS,pos=…,vel_cps=…,fs=…,duty=…` telemetry @ 10 Hz. **Still no motion** (duty never
   set non-zero). EXTI4/EXTI9_5 vectors wired in `startup.c`.

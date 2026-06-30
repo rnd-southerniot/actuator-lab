@@ -36,7 +36,7 @@ from the Waveshare wiki. Reuses the proven `st-discovery` DBH-12V map (PWM + 2 d
 
 ```
    STM32F429 (3.3 V)            Waveshare Pi-header (physical pin)
-   PB4 TIM3_CH1 (~20 kHz) ────► PWMA = Pin 37     active-high PWM enable (speed)
+   PB4 TIM3_CH1 (~1 kHz) ────► PWMA = Pin 37     active-high PWM enable (speed)
    PA5 GPIO out          ────► M1   = Pin 38     direction A
    PA7 GPIO out          ────► M2   = Pin 40     direction B
    3V3                   ────► 3V3  = Pin 1       (74LVC8T245 A-side / VCCA reference)
@@ -115,7 +115,7 @@ terminal block; talk to it over I²C (STEMMA QT or header).
 
 | Function | F429 pin / peripheral | Source / notes |
 |---|---|---|
-| Motor PWM → board PWMA | `PB4` — TIM3_CH1 (AF2) | reuse (DBH map); ~20 kHz. PB4=NJTRST → flash via SWD only |
+| Motor PWM → board PWMA | `PB4` — TIM3_CH1 (AF2) | reuse (DBH map); ~1 kHz. PB4=NJTRST → flash via SWD only |
 | Direction → board M1 | `PA5` — GPIO out | reuse (3.3 V output; DAC-capable pin, irrelevant as digital out) |
 | Direction → board M2 | `PA7` — GPIO out | reuse |
 | Fault ← board FS1 | `PB7` — GPIO in (FT, floating) | ✅ free + 5 V-tolerant. MC33886 FS = OD active-LOW, 1k→5 V; LOW=fault → trip PWM=0 |

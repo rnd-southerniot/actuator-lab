@@ -29,7 +29,7 @@ Handoff note. Written 2026-06-29 (scaffold only — no hardware yet). Read first
 ### Step B — firmware (in this folder's `test/`)
 Author the project **here** as an st-discovery-style Makefile build (CubeMX + Makefile + `st-flash`;
 reuse the DBH-12V PWM/IN1/IN2 + PC4/PC5 encoder map; model the `balance-mvp` control-loop structure).
-Pieces: TIM3 PWM ~20 kHz, **EXTI A/B decode + TIM2 edge-timestamp velocity**, **INA238 current/V over
+Pieces: TIM3 PWM ~1 kHz, **EXTI A/B decode + TIM2 edge-timestamp velocity**, **INA238 current/V over
 I2C3**, TIM6/7 1 kHz PID ISR, FS-trip, USART1 telemetry, LCD live plot. **Boots PWM = 0.**
 
 ### Step C — Phases 0–2 (read-only / first energize)

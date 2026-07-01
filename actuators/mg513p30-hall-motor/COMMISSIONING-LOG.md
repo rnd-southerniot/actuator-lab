@@ -95,5 +95,25 @@ position-P (`g_kpp`, cps/count) → clamped velocity setpoint (`POS_VEL_CAP_CPS=
 inner velocity PI drives duty; a `POS_DEADBAND_COUNTS=12` band parks it at target. Verified: a 728-count
 move decelerates smoothly (vel 1960→0), settles 9 short (in-band), **no overshoot, no hunt**.
 
-## Phase 7 — Fault handling & recovery  ⚠️ go-ahead — NOT YET RUN
-- Induce stall / FS trip; verify fail-safe + recovery. (FS→fail-safe→reset chain already seen incidentally.)
+## Phase 7 — Fault handling & recovery  ✅ 2026-07-02 (go-ahead given)
+| Check | Expected | Measured | Pass? |
+|---|---|---|---|
+| Fault flagged | detect a locked rotor | **new stall detector** latched FAULT on a held jog (~0.5 s) | ✅ |
+| Fails safe | PWM→0, no runaway | duty→0 immediately on latch | ✅ |
+| Reset/recover | clear cause → re-enable | `reset` → `arm` → `OK`, then `jog 600` spun freely | ✅ |
+| Healthy motion resumes | small move, no fault | pos 80→686, vel ~2800, no trip | ✅ |
+| No false-trip (normal ops) | low/mid/high starts + pos moves don't trip | confirmed at production threshold | ✅ |
+
+### Findings + fix
+- **A raw stall is NOT self-reported by the hardware:** two held-jog stalls (45 % duty) drew current and
+  sagged the rail to ~7.2 V but **FS never tripped** (MC33886 didn't fault at that level; INA238 is
+  unusable under PWM for a current-trip). So a locked rotor had no firmware guard beyond the bounded-jog
+  timeout + PSU limit.
+- **Added an encoder-based stall detector** (`control_isr`): if commanded |duty| ≥ `STALL_DUTY_MIN`(850)
+  yet the encoder moves < `STALL_MOVE_COUNTS`(80) over `STALL_LATCH_TICKS`(500 ms) → `fault_trip()`.
+  **Position-windowed, not velocity** — a hand-held stall jitters the velocity estimate (a first vel-based
+  attempt wouldn't latch); position is stable. Also catches closed-loop wind-up-to-rail stalls.
+  Validated by temporarily dropping the threshold to 400 for a safe low-torque demo, then restored to 850.
+- FS fail-safe + recovery also proven repeatedly all session (now debounced).
+
+**Result:** ✅ **VALIDATED — all gates 0–7 passed.**

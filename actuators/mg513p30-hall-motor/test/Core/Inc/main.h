@@ -80,6 +80,9 @@ extern "C" {
 #define VEL_LPF_ALPHA           0.10f                         /* EMA on velocity feedback (~16 Hz @ 1 kHz loop) */
 #define POS_VEL_CAP_CPS         4000L                         /* MODE_POS cascade: max inner velocity setpoint (~165 RPM) */
 #define POS_DEADBAND_COUNTS     12L                           /* MODE_POS: |err|≤this ⇒ hold (no hunt); ~3° at 1456 CPR */
+#define STALL_DUTY_MIN          850L                          /* stall detect: near-max commanded duty ... */
+#define STALL_MOVE_COUNTS       80L                           /* ... yet the encoder moves < this over the window ... */
+#define STALL_LATCH_TICKS       500U                          /* ... i.e. near-stationary for N ms ⇒ locked rotor → fault. Position-windowed (robust to velocity noise from a hand-held stall); N > worst-case breakaway so normal starts don't false-trip. Uses encoder+duty, not the PWM-noisy INA238. */
 #define TELEM_PERIOD_MS         100U                          /* STATUS line cadence */
 #define CTRL_ISR_HZ             1000U                         /* TIM6 PID loop rate */
 

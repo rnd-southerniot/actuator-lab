@@ -375,6 +375,30 @@ static void control_isr(void) {
       apply_output(0);
       break;
   }
+
+  /* Locked-rotor / stall detector (reaches here only when ARMED). Sustained near-max commanded
+   * duty with ~zero velocity ⇒ the rotor is stuck (or the closed loop has wound to the rail
+   * against a load). Latches a fault so it can't sit drawing stall current. Encoder+duty only —
+   * the INA238 is unusable under PWM. Threshold/latch are above the from-rest breakaway so normal
+   * starts (velocity rises well within STALL_LATCH_TICKS) do not false-trip. */
+  static uint16_t hi_duty_ticks = 0U;
+  static int32_t stall_ref_pos = 0;
+  int32_t abs_duty = (g_last_duty < 0) ? -g_last_duty : g_last_duty;
+  if (abs_duty >= STALL_DUTY_MIN) {
+    if (hi_duty_ticks == 0U) {
+      stall_ref_pos = g_enc_count;             /* open a fresh window */
+    }
+    if (++hi_duty_ticks >= STALL_LATCH_TICKS) {
+      int32_t moved = g_enc_count - stall_ref_pos;
+      if (moved < 0) moved = -moved;
+      hi_duty_ticks = 0U;                       /* window closed → restart either way */
+      if (moved < STALL_MOVE_COUNTS) {
+        fault_trip();                           /* high duty but barely moved ⇒ locked rotor */
+      }
+    }
+  } else {
+    hi_duty_ticks = 0U;
+  }
 }
 
 /* ===== Console ===== */

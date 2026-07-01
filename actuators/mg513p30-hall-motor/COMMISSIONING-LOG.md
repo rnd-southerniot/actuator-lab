@@ -117,3 +117,9 @@ move decelerates smoothly (vel 1960→0), settles 9 short (in-band), **no oversh
 - FS fail-safe + recovery also proven repeatedly all session (now debounced).
 
 **Result:** ✅ **VALIDATED — all gates 0–7 passed.**
+
+### Cross-unit confirmation (2nd identical MG513P30) — 2026-07-02
+Swapped in a second identical unit and re-ran Phase 7: drive-alive OK (+duty → +pos, same wiring);
+held-stall → **FAULT → PWM 0** (~0.5 s); `reset` → `arm` → free spin (recovery); no false-trip on the
+normal start. **Identical result** — fault handling is motor-independent (keys off duty + encoder).
+Verification only (temp threshold 400 for the safe demo, restored to 850); no firmware change.

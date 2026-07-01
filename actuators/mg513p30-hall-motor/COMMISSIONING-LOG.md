@@ -78,9 +78,22 @@ the raw FS EXTI **no longer latches**; the **1 kHz poll latches only after FS re
 MC33886 fault still latches within ~3 ms (the bridge self-protects meanwhile). Survey then ran glitch-free.
 A hardware RC filter (1 k + 100 nF on PB7) remains a good belt-and-suspenders add.
 
-## Phase 6 — Repeatability  ⚠️ go-ahead — NOT YET RUN
-- Out-and-back position cycles. Note: cascade the position loop first (REV-build lesson) before trusting
-  position control on the gear train.
+## Phase 6 — Repeatability  ✅ 2026-07-02 (go-ahead given)
+Position control **rewritten as a cascade** first (see fix below), then 5 out-and-back cycles of 1 rev
+(home 719 ↔ 719+1456=2175), `gainv 1 10` / `gainp 3 0 0`:
+| Cycle | "out" settle (tgt 2175) | "home" settle (tgt 719) |
+|---|---|---|
+| 1–5 | **2167** (all 5) | **729, 728, 728, 728, 728** |
+- **Returns home to 728 ±1 count over all 5 cycles — no accumulating drift; 0 fault events.** ✅
+- Repeatability ≈ **±1 count (±0.25° at output).** The systematic ~8–9 count offset from target is the
+  deadband/backlash (stops within the 12-count band, always short in the approach direction) — not drift.
+
+### 🔧 Firmware fix — cascade position loop (replaces direct-duty PID)
+`MODE_POS` was a direct position→duty PID (the REV-build failure mode: stiction deadband + overshoot
+limit-cycle, and hard reversals that likely killed the REV gearbox). Rewrote it as a **cascade**: outer
+position-P (`g_kpp`, cps/count) → clamped velocity setpoint (`POS_VEL_CAP_CPS=4000`) → the existing
+inner velocity PI drives duty; a `POS_DEADBAND_COUNTS=12` band parks it at target. Verified: a 728-count
+move decelerates smoothly (vel 1960→0), settles 9 short (in-band), **no overshoot, no hunt**.
 
 ## Phase 7 — Fault handling & recovery  ⚠️ go-ahead — NOT YET RUN
 - Induce stall / FS trip; verify fail-safe + recovery. (FS→fail-safe→reset chain already seen incidentally.)

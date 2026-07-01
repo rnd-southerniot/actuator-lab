@@ -341,20 +341,31 @@ static void control_isr(void) {
     }
 
     case MODE_POS: {
+      /* CASCADE: outer position-P sets a clamped velocity setpoint; the inner velocity PI
+       * (same as MODE_VEL) turns it into duty. The inner loop absorbs stiction/breakaway, so the
+       * approach decelerates smoothly instead of the direct-duty limit-cycle. Only g_kpp is used
+       * (cps per count); g_kpi/g_kpd are legacy/unused in the cascade. */
       int32_t pos = g_enc_count;
-      float err = (float)g_pos_sp_counts - (float)pos;
-      g_pos_i += err * dt;
-      float i_term = g_kpi * g_pos_i;
+      float pos_err = (float)g_pos_sp_counts - (float)pos;
+      float vel_sp;
+      if (pos_err > (float)POS_DEADBAND_COUNTS || pos_err < -(float)POS_DEADBAND_COUNTS) {
+        vel_sp = clampf(g_kpp * pos_err, -(float)POS_VEL_CAP_CPS, (float)POS_VEL_CAP_CPS);
+      } else {
+        vel_sp = 0.0f;      /* within deadband → command a stop (no hunt at target) */
+        g_vel_i = 0.0f;     /* park the inner integrator so it doesn't wind up while holding */
+      }
+      /* inner velocity PI (mirrors MODE_VEL) */
+      float err = vel_sp - g_vel_filt;
+      g_vel_i += err * dt;
+      float i_term = g_kvi * g_vel_i;
       if (i_term > out_max) {
         i_term = out_max;
-        if (g_kpi > 1e-6f) g_pos_i = i_term / g_kpi;
+        if (g_kvi > 1e-6f) g_vel_i = i_term / g_kvi;
       } else if (i_term < -out_max) {
         i_term = -out_max;
-        if (g_kpi > 1e-6f) g_pos_i = i_term / g_kpi;
+        if (g_kvi > 1e-6f) g_vel_i = i_term / g_kvi;
       }
-      float deriv = (float)(pos - g_pos_prev) / dt; /* counts/s */
-      g_pos_prev = pos;
-      float u = g_kpp * err + i_term - g_kpd * deriv;
+      float u = g_kvp * err + i_term;
       apply_output((int32_t)clampf(u, -out_max, out_max));
       break;
     }

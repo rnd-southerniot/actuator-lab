@@ -78,6 +78,8 @@ extern "C" {
 #define ENC_VEL_STALE_US        100000UL                      /* >100 ms since last edge ⇒ vel = 0 */
 #define VEL_MAX_CPS             11000L                        /* sanity clamp; free speed ≈ 1560×392/60 ≈ 10200 cps @ 12 V */
 #define VEL_LPF_ALPHA           0.10f                         /* EMA on velocity feedback (~16 Hz @ 1 kHz loop) */
+#define POS_VEL_CAP_CPS         4000L                         /* MODE_POS cascade: max inner velocity setpoint (~165 RPM) */
+#define POS_DEADBAND_COUNTS     12L                           /* MODE_POS: |err|≤this ⇒ hold (no hunt); ~3° at 1456 CPR */
 #define TELEM_PERIOD_MS         100U                          /* STATUS line cadence */
 #define CTRL_ISR_HZ             1000U                         /* TIM6 PID loop rate */
 

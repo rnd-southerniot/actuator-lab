@@ -275,9 +275,16 @@ static float clampf(float v, float lo, float hi) {
 
 /* ===== 1 kHz control ISR (TIM6) ===== */
 static void control_isr(void) {
-  /* Backstop fault poll (the EXTI is the fast path; this catches a missed/floating edge). */
+  /* Debounced FS-fault poll (the sole fault latch now — the raw EXTI edge is ignored, see
+   * HAL_GPIO_EXTI_Callback). Require FS LOW on N consecutive 1 kHz ticks so sub-ms EMI glitches
+   * on the unfiltered PB7 line don't false-trip; a real fault holds LOW → latched in N ms. */
+  static uint8_t fs_low_ticks = 0U;
   if (fs_is_fault()) {
-    fault_trip();
+    if (++fs_low_ticks >= FS_DEBOUNCE_TICKS) {
+      fault_trip();
+    }
+  } else {
+    fs_low_ticks = 0U;
   }
 
   /* Low-pass the (sanity-clamped) velocity every tick — keeps the estimate usable despite
@@ -690,7 +697,9 @@ void EXTI9_5_IRQHandler(void) {
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   if (GPIO_Pin == MOTOR_FS_PIN) {
-    fault_trip();
+    /* Do NOT latch on the raw FS edge: the unfiltered PB7 line picks up EMI glitches at speed
+     * that produce spurious falling edges. Real faults are caught by the debounced 1 kHz poll
+     * in control_isr (FS held LOW for FS_DEBOUNCE_TICKS). */
     return;
   }
   /* encoder edge (PC4 or PC5): decode against the previous coherent state */

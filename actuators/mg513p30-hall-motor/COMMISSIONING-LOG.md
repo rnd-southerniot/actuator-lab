@@ -59,8 +59,24 @@ Firmware: `mg513p30-f429i` (branch rev-core-hex-firmware; ported from REV Core H
   (accounts for the ~6.5% gap vs 1560). Firmware `ENC_COUNTS_PER_OUT_REV` updated 1560 → **1456** + reflashed.
 - Note: free speed re-derives to ≈ 1456 × 366/60 ≈ 8880 cps (VEL_MAX_CPS=11000 still has headroom).
 
-## Phase 5 — Speed survey  ⚠️ go-ahead — partial (see preview above)
-- Sweep toward free speed ≈ 366 RPM (≈ 9500 cps). Tune `gainv`; log smoothness + vel-est noise.
+## Phase 5 — Speed survey  ✅ 2026-07-02 (go-ahead given; gains `gainv 1 10`)
+Closed-loop velocity swept low/mid/high — **no FS trips** (after the debounce fix below).
+| Setpoint | Actual (vfilt) | Duty | Notes | Pass? |
+|---|---|---|---|---|
+| low — 1000 cps (~41 RPM) | ~1000 | 300–558 | tracks; some duty hunting | ✅ |
+| mid — 4000 cps (~165 RPM) | ~3600–4030 | 450–999 | tracks; saturates on accel | ✅ |
+| high — 7500 cps (~309 RPM) | **plateaus ~7150 (~295 RPM)** | **pinned 999** | duty-saturated → 7500 unreachable at 12 V under load | ⚠️ ceiling |
+- **Practical band ≈ 20–290 RPM** (up to ~7000 cps before duty saturates). Vendor no-load 366 RPM is
+  open-loop at full 12 V; closed-loop caps lower (LPF lag + slight bus sag + load).
+- **Velocity estimate is noisy** (raw `vel_cps` ±20–30 % around `vfilt`); gains are a loose first pass.
+  Future: retune `gainv`, and improve the low-speed velocity estimator. Running current ≤ ~1.2 A (accel).
+
+### 🔧 Firmware fix — FS-fault debounce (unblocked this phase)
+The unfiltered PB7/FS line false-tripped on EMI at speed (edge-triggered EXTI caught glitches). Changed:
+the raw FS EXTI **no longer latches**; the **1 kHz poll latches only after FS reads LOW for
+`FS_DEBOUNCE_TICKS = 3` consecutive ticks** (`control_isr`). Rejects sub-ms glitches; a real (held-LOW)
+MC33886 fault still latches within ~3 ms (the bridge self-protects meanwhile). Survey then ran glitch-free.
+A hardware RC filter (1 k + 100 nF on PB7) remains a good belt-and-suspenders add.
 
 ## Phase 6 — Repeatability  ⚠️ go-ahead — NOT YET RUN
 - Out-and-back position cycles. Note: cascade the position loop first (REV-build lesson) before trusting

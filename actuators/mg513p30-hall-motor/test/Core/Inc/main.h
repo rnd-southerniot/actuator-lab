@@ -30,6 +30,9 @@ extern "C" {
 /* --- Driver fault: MC33886 FS, open-drain active-LOW, 1k->5V. PB7 is 5V-tolerant. --- */
 #define MOTOR_FS_PORT           GPIOB
 #define MOTOR_FS_PIN            GPIO_PIN_7   /* PB7  <- board FS1 pad (LOW = fault) */
+#define FS_DEBOUNCE_TICKS       3U           /* FS must read LOW on N consecutive 1 kHz polls to latch
+                                              * a fault — rejects EMI glitches on the unfiltered PB7
+                                              * line; a real (held-LOW) MC33886 fault latches in N ms */
 
 /* --- Quadrature encoder (EXTI both-edges + TIM2 timestamp velocity in Step 2) --- */
 #define ENC_A_PORT              GPIOC

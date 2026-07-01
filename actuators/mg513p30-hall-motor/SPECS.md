@@ -30,12 +30,12 @@
 | Output | **Push-pull, internally pulled up to VCC → read directly by MCU** (no external pull-up) |
 | Back cover | Bare (no cover; stable, doesn't need one) |
 
-### Derived unit constant (⏳ bench-verify at Phase 4)
-- **Counts / output rev = 13 PPR × 4 (quadrature edge decode) × 30 (gear) = 1560 counts/rev** (nominal).
-  - ×4 assumes the firmware's full-quadrature EXTI decode (both edges, both channels) — as on the REV rig.
-  - **Do NOT trust 1560 in production** until confirmed against a shaft mark by the multi-rev
-    accumulation method (same as REV's 288 verification).
-- **Free-speed count rate = 1560 × 366/60 ≈ 9,516 counts/s** → sets `VEL_MAX_CPS` (use ~10,500 headroom).
+### Unit constant — ✅ BENCH-MEASURED @ Phase 4 (2026-07-02)
+- **Counts / output rev ≈ 1456** (measured: 1455 over 1 rev landing on-mark, 1466 over 5 revs).
+  **NOT the datasheet-implied 1560.** = 13 PPR × 4 (quad) × **28** → the actual gearbox is **~28:1, not
+  the nominal 30:1** (the "P30" label overstates it by ~6.5%). Firmware `ENC_COUNTS_PER_OUT_REV = 1456`.
+- **Free-speed count rate ≈ 1456 × 366/60 ≈ 8,880 cps** → `VEL_MAX_CPS = 11000` (headroom OK).
+- Direction: firmware negates the quad decode so **+duty → +pos/+vel** (this motor's A/B ran opposite).
 
 ## Drive / control interface (reuses the REV rig) ✅ rig / ⏳ bench
 - Driver: **Waveshare 2× MC33886 H-bridge**, sign-magnitude, **PWM 1 kHz** (MC33886 enable limit — NOT 20 kHz).

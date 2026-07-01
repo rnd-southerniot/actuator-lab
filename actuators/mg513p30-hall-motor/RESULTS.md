@@ -14,9 +14,10 @@ Characterization from the commissioning run. Keep concise + evidence-backed.
   to drive; without it, +duty → −vel = closed-loop runaway. Now +duty → +pos/+vel. ✅
 - Gains boot to 0 — set each session. First stable velocity: `gainv 1 10` (needs a proper tune).
 
-## Calibration
-- **Unit constant:** 1560 counts = 1.000 output rev (13 PPR × 4 × 30) — **bench-verify at Phase 4**
-  (multi-rev method, as with REV's 288). Not yet measured against a shaft mark.
+## Calibration ✅ (Phase 4, 2026-07-02)
+- **Unit constant ≈ 1456 counts = 1.000 output rev** — bench-measured (1455 over 1 rev landing on-mark;
+  1466 over 5 revs). **NOT the datasheet 1560** — actual gearbox is **~28:1, not 30:1** (13 PPR × 4 × 28).
+  Firmware `ENC_COUNTS_PER_OUT_REV = 1456`.
 
 ## Speed band
 - First closed-loop run: **~2000 cps (≈77 RPM) held stable** (`vfilt` ±150) — no runaway, <0.5 A, no FS

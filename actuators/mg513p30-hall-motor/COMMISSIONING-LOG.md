@@ -48,9 +48,16 @@ Firmware: `mg513p30-f429i` (branch rev-core-hex-firmware; ported from REV Core H
   modulated 190–665, current <0.5 A, no runaway, `fs=1`. **Loop sign correct.** Raw vel noisy (~±500 cps
   span) but the LPF tracks. Gains are a first pass — full tune + speed survey = Phase 5.
 
-## Phase 4 — Scaling / calibration  ⚠️ go-ahead — NOT YET RUN
-- Unit constant to verify: **1560 counts = 1.000 output rev** (13 PPR × 4 × 30) — multi-rev method
-  (as with REV's 288). Measured: ______
+## Phase 4 — Scaling / calibration  ✅ 2026-07-02 (go-ahead given)
+- **Unit constant bench-verified ≈ 1456 counts = 1.000 output rev** — NOT the datasheet's 1560.
+- Method = multi-rev accumulation + shaft mark (as with REV's 288):
+| Spin | Counts (Δpos) | Operator read | → cnt/rev | Pass? |
+|---|---|---|---|---|
+| 5-turn | 15020−6977 = **8043** | 5 turns + ~175° = 5.486 rev | **1466** | ✅ |
+| 1-turn | 16475−15020 = **1455** | landed **on the reference** (≈1.00 rev) | **1455** | ✅ |
+- **Conclusion:** ≈ **1456 = 13 PPR × 4 × 28** → the actual gearbox is **~28:1, not the nominal 30:1**
+  (accounts for the ~6.5% gap vs 1560). Firmware `ENC_COUNTS_PER_OUT_REV` updated 1560 → **1456** + reflashed.
+- Note: free speed re-derives to ≈ 1456 × 366/60 ≈ 8880 cps (VEL_MAX_CPS=11000 still has headroom).
 
 ## Phase 5 — Speed survey  ⚠️ go-ahead — partial (see preview above)
 - Sweep toward free speed ≈ 366 RPM (≈ 9500 cps). Tune `gainv`; log smoothness + vel-est noise.

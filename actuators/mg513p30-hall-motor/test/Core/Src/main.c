@@ -695,7 +695,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   }
   /* encoder edge (PC4 or PC5): decode against the previous coherent state */
   uint8_t cur = enc_read_state();
-  int8_t d = kQuadLUT[(g_enc_prev_state << 2) | cur];
+  /* MG513P30: this motor's A/B orientation counts opposite to the drive direction
+   * (+duty measured −pos on the bench). Negate the decode so +duty → +pos and +vel
+   * (loop-sign correctness). Flips g_enc_count and g_last_dir together. */
+  int8_t d = -kQuadLUT[(g_enc_prev_state << 2) | cur];
   if (d != 0) {
     uint32_t now = micros();
     g_enc_count += d;

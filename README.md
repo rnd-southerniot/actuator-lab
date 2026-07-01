@@ -17,7 +17,7 @@ passing the phase-gated [commissioning workflow](docs/COMMISSIONING-WORKFLOW.md)
 | **LEESN IG28ET** | Integrated stepper | Modbus RTU / RS-485 | ESP32-S3 (RAK3112) | ✅ bench-proven (jog + goto, 0-count err) | [actuators/leesn-ig28et-stepper](actuators/leesn-ig28et-stepper) |
 | **LEESN IG42ET** | Integrated stepper | Modbus RTU / RS-485 | ESP32-S3 (RAK3112) | ✅ validated (P0–P7; 2.0 A, 4000 pp/rev, closed-loop, fault-recovery) | [actuators/leesn-ig42et-stepper](actuators/leesn-ig42et-stepper) |
 | **REV Core Hex Motor** (REV-41-1300) | Brushed DC gearmotor (72:1) + encoder | PWM H-bridge (MC33886) | STM32 Discovery | ⚠️ retired at P5 — **gearbox mechanically damaged** (grinding; current-spike FS trips). P0–4 ✅ (288 cnt/rev cal). Superseded by MG513P30 | [actuators/rev-core-hex-motor](actuators/rev-core-hex-motor) |
-| **MG513P30** 12V (Hall encoder) | Brushed DC gearmotor (30:1) + Hall quad encoder | PWM H-bridge (MC33886) | STM32 Discovery | ⛔ onboarding — folder scaffolded; specs pending confirm (encoder PPR/VCC); reuses REV rig + firmware | [actuators/mg513p30-hall-motor](actuators/mg513p30-hall-motor) |
+| **MG513P30** 12V (Hall encoder) | Brushed DC gearmotor (30:1) + Hall quad encoder | PWM H-bridge (MC33886) | STM32 Discovery | ⏳ partial (P0–3 ✅: motor+encoder+both dirs; closed-loop vel stable; 1560 cnt/rev). P4–7 pending | [actuators/mg513p30-hall-motor](actuators/mg513p30-hall-motor) |
 | Quanser **QUBE-Servo 2** | DC servo plant (model) | — (Simulink) | MATLAB | 📘 reference | [reference/qube-servo2-plant](reference/qube-servo2-plant) |
 
 Status legend: ✅ validated (all gates) · ⏳ partial (Phases 0–N) · ⚠️ blocked at a gate ·

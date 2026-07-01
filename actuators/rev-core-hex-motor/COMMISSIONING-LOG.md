@@ -125,3 +125,19 @@ Firmware `MODE_POS` is a **direct position→duty PID** (not cascaded). On-bench
 **Result:** ☐ ✅ validated (Phase 7 passed) — update catalog row.
 **Session 2026-07-01 outcome:** Phase 4 ✅, Phase 5 ⏳ (supply-limited), Phase 7 ⏳ (FS path proven;
 stall/over-temp pending). **Blocker for Phases 5–7 completion = stiff VIN supply (bulk cap / bench PSU).**
+
+## ⛔ RETIRED 2026-07-01 (session 2) — gearbox mechanically failed
+Re-attempting the Phase 5 speed survey, the drive FS-tripped repeatedly the moment current crossed
+**~1 A**, and the threshold **worsened with cumulative run-time** (early `vel 100` held 9 s; later even
+`vel 120` cut out in 6 s). It was **not** the supply: swapping to a bench PSU **and** raising its current
+limit to 3 A did not move the threshold. Root cause was found to be **mechanical** — the operator heard
+**grinding/crunching from the gearbox**. A binding/damaged gear train draws current spikes → crosses the
+FS/undervolt point → trips; the progressive worsening = progressive gear damage. Likely **aggravated by
+the hard direction reversals and stall-against-stiction holds during the direct-position-loop tuning**
+(the ±13-count deadband limit-cycles) — a lesson for the next unit: cascade the position loop / avoid
+repeated hard reversals on a delicate gear train.
+
+**Disposition:** unit retired for precision work. **Superseded by
+[MG513P30 (Hall)](../mg513p30-hall-motor/)** on the same rig (12 V DC + quad encoder). Phases 0–4 results
+above remain valid as a record. The **firmware, FS-glitch hardening idea (RC filter / debounce on PB7),
+and cascade-position-loop recommendation carry forward** to the MG513P30 build.

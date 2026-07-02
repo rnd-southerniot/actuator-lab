@@ -49,9 +49,12 @@ static I2C_HandleTypeDef hi2c3;
 /* ===== Encoder state (written in EXTI ISR, read elsewhere) ===== */
 static volatile int32_t g_enc_count;
 static volatile uint32_t g_last_edge_us;
-static volatile uint32_t g_last_interval_us;
-static volatile int8_t g_last_dir;
 static volatile uint8_t g_enc_prev_state; /* (A<<1)|B */
+/* Edge ring for the windowed-T velocity estimator: (timestamp, enc_count) captured at each edge. */
+static volatile uint32_t g_edge_ts[VEL_EDGE_WIN];
+static volatile int32_t  g_edge_cnt[VEL_EDGE_WIN];
+static volatile uint8_t  g_edge_head;   /* next write slot */
+static volatile uint8_t  g_edge_fill;   /* valid entries, saturating at VEL_EDGE_WIN */
 
 static const int8_t kQuadLUT[16] = {
     0, -1, +1, 0,
@@ -120,24 +123,36 @@ static uint8_t enc_read_state(void) {
 
 static int32_t enc_velocity_cps(void) {
   uint32_t now = micros();
-  /* Save/restore PRIMASK (not unconditional __enable_irq): this is also called from the
-   * TIM6 ISR, so it must not clobber a caller's interrupt-masking state. */
+  /* Windowed T-method: velocity = (Δcount / Δtime) over the last up-to-VEL_EDGE_WIN edges.
+   * Averaging the timing across N edges cancels the per-edge Hall spacing jitter (quadrature phase
+   * asymmetry + pole variation) that made the single-edge estimate noisy, while keeping µs timing
+   * resolution at all speeds. Δcount is signed, so direction (incl. reversals) is handled.
+   * Save/restore PRIMASK (not unconditional __enable_irq): also called from the TIM6 ISR. */
   uint32_t primask = __get_PRIMASK();
   __disable_irq();
   uint32_t last = g_last_edge_us;
-  uint32_t interval = g_last_interval_us;
-  int8_t dir = g_last_dir;
+  uint8_t fill = g_edge_fill;
+  uint8_t head = g_edge_head;
+  uint32_t t_new = 0, t_old = 0; int32_t c_new = 0, c_old = 0;
+  if (fill >= 2U) {
+    uint8_t i_new = (uint8_t)((head + VEL_EDGE_WIN - 1U) % VEL_EDGE_WIN);
+    uint8_t i_old = (uint8_t)((head + VEL_EDGE_WIN - fill) % VEL_EDGE_WIN);
+    t_new = g_edge_ts[i_new];  c_new = g_edge_cnt[i_new];
+    t_old = g_edge_ts[i_old];  c_old = g_edge_cnt[i_old];
+  }
   __set_PRIMASK(primask);
 
-  if (interval == 0U) {
+  if (fill < 2U) {
     return 0;
   }
   if ((now - last) > ENC_VEL_STALE_US) {
-    return 0;
+    return 0;   /* no recent edges ⇒ stopped */
   }
-  /* Sanity-clamp: a very short interval (contact bounce / two edges in ~1 µs) yields a huge
-   * spurious cps — reject it so it can't kick the filter/loop. */
-  int32_t cps = (int32_t)dir * (int32_t)(TIM2_TICK_HZ / interval);
+  uint32_t dt = t_new - t_old;
+  if (dt == 0U) {
+    return 0;   /* guard: two edges in <1 µs (bounce) */
+  }
+  int32_t cps = (int32_t)((int64_t)(c_new - c_old) * (int64_t)TIM2_TICK_HZ / (int64_t)dt);
   if (cps > VEL_MAX_CPS) {
     cps = VEL_MAX_CPS;
   } else if (cps < -VEL_MAX_CPS) {
@@ -655,8 +670,8 @@ static void Encoder_Init(void) {
   g_enc_prev_state = enc_read_state();
   g_enc_count = 0;
   g_last_edge_us = micros();
-  g_last_interval_us = 0;
-  g_last_dir = 0;
+  g_edge_head = 0;
+  g_edge_fill = 0;
 
   /* Encoder + FS fault are high priority (preempt the PID). FS shares EXTI9_5. */
   HAL_NVIC_SetPriority(EXTI4_IRQn, 2, 0);
@@ -744,14 +759,19 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
   uint8_t cur = enc_read_state();
   /* MG513P30: this motor's A/B orientation counts opposite to the drive direction
    * (+duty measured −pos on the bench). Negate the decode so +duty → +pos and +vel
-   * (loop-sign correctness). Flips g_enc_count and g_last_dir together. */
+   * (loop-sign correctness). */
   int8_t d = -kQuadLUT[(g_enc_prev_state << 2) | cur];
   if (d != 0) {
     uint32_t now = micros();
     g_enc_count += d;
-    g_last_interval_us = now - g_last_edge_us;
     g_last_edge_us = now;
-    g_last_dir = d;
+    /* push (timestamp, count) into the velocity ring */
+    g_edge_ts[g_edge_head] = now;
+    g_edge_cnt[g_edge_head] = g_enc_count;
+    g_edge_head = (uint8_t)((g_edge_head + 1U) % VEL_EDGE_WIN);
+    if (g_edge_fill < VEL_EDGE_WIN) {
+      g_edge_fill++;
+    }
   }
   g_enc_prev_state = cur;
 }

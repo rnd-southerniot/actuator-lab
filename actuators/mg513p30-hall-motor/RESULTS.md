@@ -26,9 +26,10 @@ Characterization from the commissioning run. Keep concise + evidence-backed.
 - Swept 1000 / 4000 / 7500 cps: low (~41 RPM) & mid (~165 RPM) track; **high 7500 (309 RPM)
   duty-saturates at 999 and plateaus ~7150 cps (~295 RPM)**. **Practical band ≈ 20–290 RPM.**
 - Vendor no-load 366 RPM is open-loop @ full 12 V; closed-loop caps lower (LPF lag + bus sag + load).
-- **Velocity estimate noisy** (raw ±20–30 % around `vfilt`) — this is the floor (measurement, gain-
-  independent); the 2026-07-03 retune (kvp 1→0.5) stops the loop amplifying it into torque ripple. A
-  better low-speed estimator would lower the floor itself — future
+- **Velocity estimator: windowed T-method** (2026-07-03) — velocity = Δcount/Δtime over the last
+  `VEL_EDGE_WIN=8` edges instead of a single edge; averages out Hall edge-spacing jitter. Cut the noise
+  floor **~4×** (vfilt_std 20/34/75 at 1000/3000/6000 cps vs ~72/140/304 before), *and* allowed less
+  LPF (`VEL_LPF_ALPHA` 0.10→0.20 = less lag). Low-speed hold ±5 %, step 500→4000 settles in ~200 ms.
   low-speed estimator = future work. Current ≤ ~1.2 A on accel; **no FS trips** (see debounce below).
 - **Static breakaway is high: ~55–60 % duty from rest** (25/50 % jogs stalled; 60 % broke away). Once
   moving, runs at low duty. Low-speed starts need the integral to push through this.

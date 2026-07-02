@@ -77,7 +77,8 @@ extern "C" {
 #define ENC_COUNTS_PER_OUT_REV  1456                          /* BENCH-MEASURED @P4 2026-07-02: 1455 (1-rev) & 1466 (5-rev) → 1456 = 13 PPR × 4 × 28:1 (actual gear ≈28, NOT nominal 30) */
 #define ENC_VEL_STALE_US        100000UL                      /* >100 ms since last edge ⇒ vel = 0 */
 #define VEL_MAX_CPS             11000L                        /* sanity clamp; free speed ≈ 1560×392/60 ≈ 10200 cps @ 12 V */
-#define VEL_LPF_ALPHA           0.10f                         /* EMA on velocity feedback (~16 Hz @ 1 kHz loop) */
+#define VEL_LPF_ALPHA           0.20f                         /* EMA on velocity feedback (raised from 0.10 — the windowed estimator is cleaner, so less LPF lag) */
+#define VEL_EDGE_WIN            8U                             /* velocity = counts/time over the last N encoder edges (windowed T-method); averages out Hall edge-spacing jitter that made the single-edge estimate noisy */
 #define POS_VEL_CAP_CPS         4000L                         /* MODE_POS cascade: max inner velocity setpoint (~165 RPM) */
 #define POS_DEADBAND_COUNTS     12L                           /* MODE_POS: |err|≤this ⇒ hold (no hunt); ~3° at 1456 CPR */
 #define STALL_DUTY_MIN          850L                          /* stall detect: near-max commanded duty ... */

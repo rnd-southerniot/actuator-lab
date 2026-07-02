@@ -20,8 +20,9 @@ Handoff note. Updated **2026-07-02** — **commissioning COMPLETE (Phases 0–7 
   override live with `gainv`/`gainp` if experimenting.
 
 ## Remaining / optional (NOT gating — motor is validated)
-1. ~~Gain retune~~ ✅ **DONE 2026-07-03** — velocity `kvp 1→0.5` (baked default), ~½ the duty ripple.
-   A better low-speed velocity **estimator** (lower the noise floor itself) is the remaining refinement.
+1. ~~Gain retune~~ ✅ **DONE 2026-07-03** — velocity `kvp 1→0.5` (baked), ~½ duty ripple.
+   ~~Velocity estimator~~ ✅ **DONE 2026-07-03** — windowed T-method (`VEL_EDGE_WIN=8`), noise floor ~4×
+   lower; LPF relaxed 0.10→0.20. Velocity loop is now clean; no further tuning needed.
 2. **Hardware RC filter on PB7** (1 k + 100 nF) — belt-and-suspenders for the FS EMI (debounce already
    handles it in firmware).
 3. **Simulink model + system-ID** (Ra/La/Ke/Kt/J/b, gear ~28:1, backlash) — see docs/MODELING.md.

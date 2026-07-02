@@ -84,7 +84,7 @@ extern "C" {
 #define STALL_DUTY_MIN          850L                          /* stall detect: near-max commanded duty ... */
 #define STALL_MOVE_COUNTS       80L                           /* ... yet the encoder moves < this over the window ... */
 #define STALL_LATCH_TICKS       500U                          /* ... i.e. near-stationary for N ms ⇒ locked rotor → fault. Position-windowed (robust to velocity noise from a hand-held stall); N > worst-case breakaway so normal starts don't false-trip. Uses encoder+duty, not the PWM-noisy INA238. */
-#define TELEM_PERIOD_MS         100U                          /* STATUS line cadence */
+#define TELEM_PERIOD_MS         100U                          /* STATUS line cadence (high-rate system-ID uses the 1 kHz `cap` burst logger instead) */
 #define CTRL_ISR_HZ             1000U                         /* TIM6 PID loop rate */
 
 /* --- INA238 current/voltage monitor (I2C3 @ 0x40) — datasheet SLYS025B --- */

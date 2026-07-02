@@ -81,6 +81,15 @@ static volatile int32_t g_pos_sp_counts;
  * Override live with `gainv`/`gainp`. */
 static volatile float g_kvp = 0.5f, g_kvi = 10.0f;   /* velocity PI (retuned: ~½ the duty ripple of 1,10) */
 static volatile float g_kpp = 3.0f, g_kpi, g_kpd;    /* position cascade P (cps/count); kpi/kpd unused */
+
+/* ---- 1 kHz burst capture (system-ID): logs (vfilt_cps, duty) each control tick ---- */
+#define CAP_N 900
+static int16_t g_cap_vel[CAP_N];
+static int16_t g_cap_duty[CAP_N];
+static volatile uint16_t g_cap_i;
+static volatile uint16_t g_cap_len;
+static volatile uint8_t  g_cap_on;
+static volatile uint8_t  g_cap_done;
 /* integrator / derivative memory (ISR-only) */
 static float g_vel_i, g_pos_i;
 static int32_t g_pos_prev;
@@ -417,6 +426,19 @@ static void control_isr(void) {
   } else {
     hi_duty_ticks = 0U;
   }
+
+  /* System-ID burst capture: one (vfilt, duty) sample per 1 kHz tick → i = time in ms. */
+  if (g_cap_on) {
+    if (g_cap_i < g_cap_len) {
+      g_cap_vel[g_cap_i] = (int16_t)g_vel_filt_cps;
+      g_cap_duty[g_cap_i] = (int16_t)g_last_duty;
+      g_cap_i++;
+    }
+    if (g_cap_i >= g_cap_len) {
+      g_cap_on = 0;
+      g_cap_done = 1;   /* main loop dumps the buffer */
+    }
+  }
 }
 
 /* ===== Console ===== */
@@ -479,6 +501,20 @@ static void console_parse(char *cmd) {
       uart_print("OK jog\r\n");
     } else {
       uart_print("ERR jog <duty> <ms> (must be armed)\r\n");
+    }
+  } else if (strncmp(cmd, "cap ", 4) == 0) {
+    /* system-ID: open-loop jog at <duty>, log <n> samples at 1 kHz, then dump CSV. */
+    int d = 0, n = 0;
+    if (sscanf(cmd + 4, "%d %d", &d, &n) == 2 && g_state == ST_ARMED) {
+      g_cap_len = (uint16_t)clamp_i32(n, 1, CAP_N);
+      g_cap_i = 0;
+      g_jog_duty = clamp_i32(d, -PID_OUT_MAX, PID_OUT_MAX);
+      g_jog_until_ms = HAL_GetTick() + (uint32_t)g_cap_len + 200U;  /* drive through the capture */
+      g_mode = MODE_JOG;
+      g_cap_on = 1;
+      uart_print("OK cap\r\n");
+    } else {
+      uart_print("ERR cap <duty> <n<=900> (must be armed)\r\n");
     }
   } else if (strncmp(cmd, "vel ", 4) == 0) {
     int c = 0;
@@ -544,6 +580,17 @@ int main(void) {
     if (g_cmd_ready) {
       console_parse(g_cmd);
       g_cmd_ready = 0;
+    }
+
+    if (g_cap_done) {
+      g_cap_done = 0;
+      char cl[40];
+      uart_print("CAP_BEGIN i_ms,vfilt_cps,duty\r\n");
+      for (uint16_t i = 0; i < g_cap_len; i++) {
+        int n = snprintf(cl, sizeof(cl), "%u,%d,%d\r\n", (unsigned)i, (int)g_cap_vel[i], (int)g_cap_duty[i]);
+        if (n > 0) HAL_UART_Transmit(&huart1, (uint8_t *)cl, (uint16_t)n, 50U);
+      }
+      uart_print("CAP_END\r\n");
     }
 
     uint32_t now_ms = HAL_GetTick();

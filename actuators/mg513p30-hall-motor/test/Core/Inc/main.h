@@ -102,6 +102,11 @@ extern "C" {
                                              15 mΩ: 4.4 A stall = 66 mV would CLIP the ±40.96 mV range */
 #define INA238_SHUNT_CAL_VALUE  3072U     /* Adafruit 15 mΩ, CURRENT_LSB 250 µA, ADCRANGE=0
                                              (= 819.2e6 × 250e-6 × 0.015); current_mA = reg/4 unchanged */
+#define INA238_ADC_CONFIG_VALUE 0xF904U   /* MODE=cont all; VBUSCT/VSHCT=540 µs; VTCT=50 µs; AVG=128.
+                                             Default (0xFB68) is AVG=1 → single conversion catches the PWM
+                                             at a random phase (garbage under drive). AVG=128 integrates
+                                             ~145 ms (~145 PWM periods @1 kHz) → true AVERAGE current.
+                                             Good for steady-state (locked-rotor/spin) system-ID; ~7 Hz. */
 /* Readback scaling (chosen so both are exact small-integer ops):
  *   current_mA = (int16)CURRENT × 0.25  = CURRENT / 4
  *   bus_mV     = VBUS × 3.125 mV         = VBUS × 25 / 8                                        */

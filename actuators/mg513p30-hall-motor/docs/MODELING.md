@@ -57,9 +57,21 @@ logger** (on-MCU timing — far cleaner than the 10 Hz STATUS stream).
 - Recapture anytime: `arm` → `jog <d1> 900` → `cap <d2> <n≤900>` (open-loop jog at d2, logs n samples
   @1 kHz, dumps `CAP_BEGIN … i_ms,vfilt_cps,duty … CAP_END`).
 
-## Limitations / next steps
-- **No current data** → Ke, Kt, Ra, La, J, b not separated. Add a PWM-synchronous or averaged current
-  measurement (or a series shunt read at PWM-off), then a locked-rotor test (Ra), no-load spin-down
-  (J, b), and back-EMF (Ke) give the physical parameters.
+## Current sensing (2026-07-03)
+- **Fixed the INA238 averaging:** the firmware never wrote `ADC_CONFIG` (0x01), so it ran at the
+  power-on default `AVG=1` — a single conversion caught the PWM at a random phase → the wild 0–1200 mA
+  swings seen in commissioning. Now set to **`ADC_CONFIG=0xF904` (AVG=128, ~145 ms integration)** →
+  reports the **true average** current: e.g. steady **~135 mA at `vel 3000`** (was unusable). ~7 Hz update
+  (fine for steady-state; too slow for transients — the `cap` logger uses encoder/duty, not current).
+- **Still NOT accuracy-validated.** Needs an external reference (bench-PSU current display or a DC ammeter
+  in series with a motor lead) — the INA sits on the PWM'd motor node (rail-to-rail common mode), so a
+  residual scale/offset bias can't be ruled out from the reading alone.
+
+## Limitations / next steps (physical parameters)
+- **Ke, Kt, Ra, La, J, b still not separated** — needs the validated current above **plus a stiff supply**.
+  On the bench PSU (stable V + current readout): **locked-rotor sweep** at several duties → Ra (slope
+  ΔV/ΔI cancels the bridge drop); **steady spin** at known ω with V,I → Ke (V = I·Ra + Ke·ω); Kt ≈ Ke (SI);
+  **no-load spin-down** (ω decay) → J, b. Do NOT do this on the 18650 pack — it sags under load, moving
+  V_supply and corrupting the fit.
 - Unloaded only — inertia/friction under a real load will differ.
 - Duty→voltage assumed ~linear at 12 V; the MC33886 drop + PWM make it approximate.

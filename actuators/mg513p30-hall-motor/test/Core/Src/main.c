@@ -221,6 +221,7 @@ static void INA238_Init(void) {
   g_ina_ok = 0;
   if (ina238_read(INA238_REG_MANUF_ID, &id) == HAL_OK && id == INA238_MANUF_ID) {
     if (ina238_write(INA238_REG_CONFIG, INA238_CONFIG_VALUE) == HAL_OK &&
+        ina238_write(INA238_REG_ADC_CONFIG, INA238_ADC_CONFIG_VALUE) == HAL_OK &&
         ina238_write(INA238_REG_SHUNT_CAL, INA238_SHUNT_CAL_VALUE) == HAL_OK) {
       g_ina_ok = 1;
     }

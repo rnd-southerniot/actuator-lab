@@ -12,7 +12,10 @@ Characterization from the commissioning run. Keep concise + evidence-backed.
   (free speed ≈ 9500 cps), **PWM 1 kHz** (MC33886 enable limit).
 - **Quadrature decode negated** (`d = -kQuadLUT[...]`) — this motor's A/B orientation counted opposite
   to drive; without it, +duty → −vel = closed-loop runaway. Now +duty → +pos/+vel. ✅
-- Gains boot to 0 — set each session. First stable velocity: `gainv 1 10` (needs a proper tune).
+- **Retuned velocity gains: `kvp=0.5, kvi=10` — now baked as firmware boot defaults** (with position-P
+  `kpp=3`). Boots DISARMED still; motion needs arm + vel/pos. Override live with `gainv`/`gainp`.
+  Retune (2026-07-03) cut duty ripple ~½ vs the old `1,10` (duty_std 36/78/162 vs 71/139/257 at
+  1000/3000/6000 cps) with equal tracking + no transient penalty (big steps saturate duty regardless of kp).
 
 ## Calibration ✅ (Phase 4, 2026-07-02)
 - **Unit constant ≈ 1456 counts = 1.000 output rev** — bench-measured (1455 over 1 rev landing on-mark;
@@ -23,7 +26,9 @@ Characterization from the commissioning run. Keep concise + evidence-backed.
 - Swept 1000 / 4000 / 7500 cps: low (~41 RPM) & mid (~165 RPM) track; **high 7500 (309 RPM)
   duty-saturates at 999 and plateaus ~7150 cps (~295 RPM)**. **Practical band ≈ 20–290 RPM.**
 - Vendor no-load 366 RPM is open-loop @ full 12 V; closed-loop caps lower (LPF lag + bus sag + load).
-- **Velocity estimate noisy** (raw ±20–30 % around `vfilt`); gains loose first pass — retune + better
+- **Velocity estimate noisy** (raw ±20–30 % around `vfilt`) — this is the floor (measurement, gain-
+  independent); the 2026-07-03 retune (kvp 1→0.5) stops the loop amplifying it into torque ripple. A
+  better low-speed estimator would lower the floor itself — future
   low-speed estimator = future work. Current ≤ ~1.2 A on accel; **no FS trips** (see debounce below).
 - **Static breakaway is high: ~55–60 % duty from rest** (25/50 % jogs stalled; 60 % broke away). Once
   moving, runs at low duty. Low-speed starts need the integral to push through this.

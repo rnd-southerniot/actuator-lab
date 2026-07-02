@@ -16,11 +16,12 @@ Handoff note. Updated **2026-07-02** — **commissioning COMPLETE (Phases 0–7 
 - **Cascade MODE_POS:** position-P (`gainp <kp> 0 0`, cps/count) → clamped vel setpoint → velocity PI;
   12-count deadband. No overshoot/limit-cycle.
 - **Stall detector:** |duty|≥850 & <80 counts moved over 500 ms → FAULT (position-windowed).
-- Gains boot to 0 — each session set `gainv 1 10` and (for position) `gainp 3 0 0`.
+- Gains **boot to tuned defaults** (velocity `0.5/10`, position-P `3`) — no need to set each session;
+  override live with `gainv`/`gainp` if experimenting.
 
 ## Remaining / optional (NOT gating — motor is validated)
-1. **Gain retune** — `gainv 1 10` tracks but the velocity estimate is noisy and duty hunts; a proper
-   tune (and a better low-speed velocity estimator) would tighten it.
+1. ~~Gain retune~~ ✅ **DONE 2026-07-03** — velocity `kvp 1→0.5` (baked default), ~½ the duty ripple.
+   A better low-speed velocity **estimator** (lower the noise floor itself) is the remaining refinement.
 2. **Hardware RC filter on PB7** (1 k + 100 nF) — belt-and-suspenders for the FS EMI (debounce already
    handles it in firmware).
 3. **Simulink model + system-ID** (Ra/La/Ke/Kt/J/b, gear ~28:1, backlash) — see docs/MODELING.md.

@@ -11,8 +11,9 @@
  * SAFETY MODEL (motion is gated, defence-in-depth):
  *   - Boots **DISARMED** with PWM = 0. The motor cannot move until an explicit `arm`.
  *   - The control ISR forces output 0 and holds integrators reset whenever state != ARMED.
- *   - Default PID gains are 0 → even ARMED with a setpoint produces no motion until gains
- *     are set on the bench. `jog` is open-loop but bounded (<=JOG_MAX_MS, auto-stop).
+ *   - PID gains boot to bench-tuned defaults (velocity 0.5/10, position-P 3); motion still requires
+ *     an explicit `arm` + `vel`/`pos` command. Override live with `gainv`/`gainp`. `jog` is open-loop
+ *     but bounded (<=JOG_MAX_MS, auto-stop).
  *   - FS LOW (MC33886 fault) trips to FAULT instantly via EXTI and is re-checked every
  *     1 ms in the ISR; FAULT forces PWM 0 and latches until `reset` (with FS clear).
  *   - Error_Handler re-forces PB4 to a GPIO LOW output (overrides TIM3 AF) → PWMA dead.
@@ -72,9 +73,11 @@ static volatile uint32_t g_jog_until_ms;
 /* setpoints */
 static volatile int32_t g_vel_sp_cps;
 static volatile int32_t g_pos_sp_counts;
-/* PID gains (default 0 → no motion until tuned on the bench) */
-static volatile float g_kvp, g_kvi;          /* velocity PI */
-static volatile float g_kpp, g_kpi, g_kpd;   /* position PID */
+/* PID gains — bench-tuned boot defaults (2026-07-03). Still boots DISARMED and needs an explicit
+ * arm + vel/pos command to move; these just mean you don't have to re-type gains each session.
+ * Override live with `gainv`/`gainp`. */
+static volatile float g_kvp = 0.5f, g_kvi = 10.0f;   /* velocity PI (retuned: ~½ the duty ripple of 1,10) */
+static volatile float g_kpp = 3.0f, g_kpi, g_kpd;    /* position cascade P (cps/count); kpi/kpd unused */
 /* integrator / derivative memory (ISR-only) */
 static float g_vel_i, g_pos_i;
 static int32_t g_pos_prev;

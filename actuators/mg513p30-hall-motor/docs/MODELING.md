@@ -4,12 +4,34 @@ Preliminary plant identification for a Simulink/control model. Data captured 202
 validated rig (F429 + MC33886 + MG513P30, unloaded, 12 V) using the firmware's **1 kHz `cap` burst
 logger** (on-MCU timing — far cleaner than the 10 Hz STATUS stream).
 
-## What this is / isn't
-- **Is:** an input→output (PWM **duty** → output-shaft **velocity**) model — a first-order linear
-  approximation around the operating region, plus the measured steady-state curve and the dominant
-  nonlinearities.
-- **Isn't:** a separated physical DC-motor model (Ra, La, Ke, Kt, J, b individually). That needs
-  **current** measurement, and the onboard INA238 is unreliable under PWM (established in commissioning).
+## Physical DC-motor parameters (2026-07-04) — motor shaft
+After fixing the INA238 averaging (validated: 0.24 A INA = 0.24 A PSU) the electromechanical parameters
+were identified. **Reflect to the output shaft with the ~28:1 gear** (ω_out = ω_mot/28; T_out = T_mot·28).
+| Param | Value | Source / confidence |
+|---|---|---|
+| **Ra** (armature) | **5.1 Ω** | multimeter across motor leads, shaft rotated (lowest-average). Solid. PWM locked-rotor couldn't resolve it (discontinuous conduction → 1.7–9 Ω scatter). |
+| **Ke = Kt** | **0.0133 V·s/rad (N·m/A)** | free-spin: slope of (V_app − I·Ra) vs ω_mot. ~±15%. |
+| **b** (viscous) | **1.96×10⁻⁶ N·m·s/rad** | steady-state Kt·I = b·ω + T_c. Rough. |
+| **T_coulomb** | **1.27×10⁻³ N·m** | same. Rough. |
+| **J** (rotor) | **~1–3×10⁻⁶ kg·m²** | spin-down (b·τ, τ=515 ms) = 1.0e-6; from accel τ_m = 2.8e-6. |
+| **La** | not measured | small (~tens of µH); a fast electrical pole, negligible for control. |
+- Sanity: Ra ⇒ stall 12/5.1 ≈ **2.4 A @ 12 V** (datasheet 3.2 A optimistic); Ke ⇒ no-load ≈ **307 RPM**
+  (measured ~320–350). Consistent to ~10–15 %.
+
+**Equations (motor shaft):**
+```
+   V = I·Ra + Ke·ω            (La ignored)
+   J·dω/dt = Kt·I − b·ω − T_c·sign(ω)
+   ⇒  ω(s)/V(s) = Kt / (J·Ra·s + (b·Ra + Kt·Ke))   [linear, no Coulomb]
+      DC gain ≈ 71 rad/s/V (motor) ≈ 24 RPM/V (out);  τ_m = J·Ra/(b·Ra+Kt·Ke) ≈ 27 ms
+```
+The measured *accel* τ (~80 ms) is longer than the linear τ_m (~27 ms) because of the **Coulomb friction**
+(the same nonlinearity as the accel/decel asymmetry) — include T_c for fidelity.
+
+## Black-box view (duty→speed) — what this is / isn't
+- **Is:** also an input→output (PWM **duty** → output-shaft **velocity**) first-order model around the
+  operating region (below), useful when you don't want the physical block.
+- **Isn't:** a high-fidelity friction model — Coulomb + breakaway are characterized but not finely fit.
   See "Limitations" — the electrical parameters are left as future work with better current sensing.
 
 ## Steady-state characteristic (open-loop, `steady_state_map.csv`)
@@ -67,11 +89,12 @@ logger** (on-MCU timing — far cleaner than the 10 Hz STATUS stream).
   in series with a motor lead) — the INA sits on the PWM'd motor node (rail-to-rail common mode), so a
   residual scale/offset bias can't be ruled out from the reading alone.
 
-## Limitations / next steps (physical parameters)
-- **Ke, Kt, Ra, La, J, b still not separated** — needs the validated current above **plus a stiff supply**.
-  On the bench PSU (stable V + current readout): **locked-rotor sweep** at several duties → Ra (slope
-  ΔV/ΔI cancels the bridge drop); **steady spin** at known ω with V,I → Ke (V = I·Ra + Ke·ω); Kt ≈ Ke (SI);
-  **no-load spin-down** (ω decay) → J, b. Do NOT do this on the 18650 pack — it sags under load, moving
-  V_supply and corrupting the fit.
+## Limitations / residual uncertainty
+- **Ra** is solid (multimeter). **Ke/Kt** ~±15 %; **b, T_c, J** are rough (small no-load currents; J spans
+  1–3×10⁻⁶). Refine with a loaded sweep (varies I → tightens Ke/Ra) and a proper Coulomb+viscous fit.
+- **La** not measured (small; fast pole, negligible for control-band modeling).
+- Method notes that bit us (for the next motor): (1) **PWM locked-rotor can't give Ra** — discontinuous
+  conduction; use a **multimeter** across the leads. (2) The INA **bus** (motor-node) voltage is unusable
+  under PWM — only the **current** is trustworthy (after AVG=128). (3) Watch the **PSU current limit** —
+  ours was <1 A and folded the rail, corrupting every high-current reading until raised.
 - Unloaded only — inertia/friction under a real load will differ.
-- Duty→voltage assumed ~linear at 12 V; the MC33886 drop + PWM make it approximate.

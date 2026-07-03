@@ -25,10 +25,10 @@ Handoff note. Updated **2026-07-02** — **commissioning COMPLETE (Phases 0–7 
    lower; LPF relaxed 0.10→0.20. Velocity loop is now clean; no further tuning needed.
 2. **Hardware RC filter on PB7** (1 k + 100 nF) — belt-and-suspenders for the FS EMI (debounce already
    handles it in firmware).
-3. ~~System-ID~~ ⏳ **PRELIMINARY DONE 2026-07-03** — see [MODELING.md](MODELING.md): duty→speed
-   first-order model (K≈8.8 cps/duty, τ≈80 ms accel), steady-state map, Coulomb-friction asymmetry;
-   1 kHz data in `docs/sysid/` via the new `cap` burst logger. **Remaining:** physical params
-   (Ra/La/Ke/Kt/J/b) need **current sensing** (INA238 unusable under PWM); + loaded testing.
+3. ~~System-ID~~ ✅ **DONE 2026-07-03/04** — [MODELING.md](MODELING.md): duty→speed first-order model
+   (K≈8.8 cps/duty, τ≈80 ms) + **physical DC-motor params** (Ra=5.1 Ω, Ke=Kt≈0.0133, b≈2e-6, J≈1-3e-6,
+   T_c≈1.3e-3) after fixing the INA238 averaging (current validated vs PSU). 1 kHz data in `docs/sysid/`.
+   **Optional refinement:** loaded sweep to tighten Ke/b/J + a proper Coulomb-friction fit.
 4. Loaded testing (all bench work so far was unloaded).
 
 ## Bench reminders

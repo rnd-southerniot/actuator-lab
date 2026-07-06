@@ -42,12 +42,28 @@ Coordinated hand-rotation capture (no 12 V) over the COBS link (`pos`=output-sha
 - Ran via `gmr_mon.py` (SerialFixture capture); `pos` is `pos_actual` float (deg), not raw counts —
   **raw CPR / 60 000-cnt-per-rev bench-verify at Phase 4.**
 
-## Phase 3 — First motion (SAFE-IDLE)  ⚠️ go-ahead (src Phase 3: open-loop motor, not run)
+## Phase 3 — First motion  ✅ 2026-07-07 open-loop (go-ahead given) — ⚠️ closed-loop needs tuning
 | Check | Expected | Measured | Pass? |
 |---|---|---|---|
-| Smallest move fwd | small defined move, +RPM | | ☐ |
-| Reverse | reverses (else swap MOTOR A/B) | | ☐ |
-| CT / current | sane with EN=HIGH | | ☐ |
+| Motor spins, encoder responds | motion + counts | DIAG open-loop (15 % duty): rpm +866, pos advanced | ✅ |
+| Direction +duty → +RPM | forward = + | after sign fix (below): +duty → +rpm/+pos (was −) | ✅ |
+| Reverse | −duty → −RPM | DIAG reverse step ran; motor+driver bidirectional | ✅ |
+| CT / current with EN=HIGH | sane | pulled current while driven (vs idle floating ~3 A) | ⏳ quantify @P3.2 |
+
+### ⚠️⚠️ RUNAWAY on first closed-loop attempt → firmware sign fix (READ)
+- **First move used RPM mode (+15) → runaway to −10 434 RPM, output saturated 1.0** (positive feedback:
+  +output spun the shaft the encoder reads as −, so the PID drove to max). Exactly WIRING.md note #5 /
+  the sibling MG513P30's inverted encoder. **ESTOP'd; motor undamaged.**
+- **Fix (user chose firmware over swapping MOTOR A/B):** negated the output in
+  `src/firmware/Core/Src/motor.c` `Motor_SetOutput()` (`duty = -duty;`) → +output now → +RPM/+encoder,
+  keeping the Phase-2 CW=+ convention. **⚠️ LOCAL edit to the `src/` submodule — NOT committed upstream**
+  (to persist: commit in `stm32-nucleo-gmr-encoder` + bump the pointer; flagged with user).
+- **Verified open-loop via DIAG** (bypasses PID): +duty → +866 rpm, +pos → direction correct; DIAG did
+  NOT hit its "direction inverted" fail path. Rebuild gotcha: needed `make clean` — a plain `make` linked
+  a stale `motor.o` (identical ELF size masked it).
+- **⚠️ Closed-loop still unusable — default gains far too hot.** With correct sign, RPM mode now
+  *oscillates* (bounded ±300, out bang-bangs ±1) instead of running away → `kp=0.5/ki=0.1` ≈ 1000× too
+  high for this plant (15 % open-loop already ≈ 866 rpm). **Phase 4 = autotune / set sane gains (~1e-3).**
 
 ## Phase 4 — Scaling / calibration  ⚠️ go-ahead
 - **Unit constant: 60 000 counts = 1.000 output rev** (500 PPR × 4 × 30) → **bench-verify** against a

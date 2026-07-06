@@ -20,19 +20,27 @@ Firmware: `src/firmware` → `dc-motor-pid.elf` (submodule pinned)
 | SB13/14 ON, SB62/63 OPEN | correct | | ☐ |
 | Supply current-limited (~2–3 A) + fused | set | | ☐ |
 
-## Phase 1 — Controller smoke test  ✅ (per source repo, 2026-04-05) — re-confirm on this bench
+## Phase 1 — Controller smoke test  ✅ 2026-07-07 (bench-confirmed on this rig)
 | Check | Expected | Measured | Pass? |
 |---|---|---|---|
-| Firmware flashes | ok | src: OpenOCD flash OK | ✅ (src) |
-| Serial/console alive | heartbeat | src Phase 1: **5/5 PASS** — 106.8 Hz, 0 gaps/dropped, boot IDLE | ✅ (src) |
-- Re-verify the VCP link on this bench (`host/server.py` / `hw_test`); no 12 V needed.
+| Firmware builds + flashes | ok | `make` (BSS+DATA 5.6 KB) → OpenOCD program+verify OK, git `41e245c` | ✅ |
+| Serial/console alive | heartbeat | `hw_test` Phase 1 **5/5**: ping 0.52 s; **111.2 Hz** (556 pkts); 0 gaps; boot IDLE; 0 dropped | ✅ |
+- Reproduces the source repo's Phase-1 (5/5, 2026-04-05). Ran via
+  `gmr-venv/bin/python -m hw_test.hw_runner --port <VCP> --phases 1` from `src/host` (COBS/CRC16 @921600).
+- Also = **Phase 0** essentials: board on USB, boots DISARMED/IDLE, **12 V not connected**. ✅
 
-## Phase 2 — Power-on & feedback sanity  *(read-only)*  ⏳ pending (src Phase 2: wiring in progress)
+## Phase 2 — Power-on & feedback sanity  *(read-only)*  ✅ 2026-07-07 (encoder on bench; **src Phase 2 unblocked**)
+Coordinated hand-rotation capture (no 12 V) over the COBS link (`pos`=output-shaft deg, `rpm`=motor):
 | Check | Expected | Measured | Pass? |
 |---|---|---|---|
-| Idle current | small/steady | | ☐ |
-| Encoder hand-check | counts up/down, sign sane | | ☐ |
-| Battery-monitor ADC (PB1) | reads pack V via divider | | ☐ |
+| Counts register on rotation | pos/rpm change | pos 190→258→22; rpm swung +609 … −1039 | ✅ |
+| **CW = positive** | +pos / +rpm | CW → pos rose, rpm +609 | ✅ |
+| CCW reverses | −pos / −rpm | CCW → pos fell to 22, rpm −1039 | ✅ |
+| RPM → 0 stationary | rpm=0 held | ended flat pos=22, **rpm=0** | ✅ |
+- Both encoder channels count, **direction = CW-positive**, zeroes at rest → A/B wiring + **5 V** good.
+- Battery-monitor ADC (PB1) not yet checked (needs the divider + pack) — defer to Phase 3 with 12 V.
+- Ran via `gmr_mon.py` (SerialFixture capture); `pos` is `pos_actual` float (deg), not raw counts —
+  **raw CPR / 60 000-cnt-per-rev bench-verify at Phase 4.**
 
 ## Phase 3 — First motion (SAFE-IDLE)  ⚠️ go-ahead (src Phase 3: open-loop motor, not run)
 | Check | Expected | Measured | Pass? |

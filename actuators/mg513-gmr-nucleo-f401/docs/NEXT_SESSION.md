@@ -1,35 +1,47 @@
 # NEXT SESSION — MG513/GMR + DBH-12V + NUCLEO-F401RE
 
-Handoff note. Written **2026-07-06** (onboarding — actuator-lab entry created, no fresh bench run yet).
+Handoff note. Updated **2026-07-07** — **Phases 0–4 PASS on-bench** (comms, encoder, open-loop,
+closed-loop RPM). Three LOCAL firmware fixes applied in `src/` (see below). P5–7 remain.
 
 ## Where we are
 | # | Item | State |
 |---|---|---|
-| 1 | actuator-lab docs (SPECS/WIRING/SAFETY/LOG) from source repo | ✅ |
-| 2 | Firmware/host/dashboard | ✅ in submodule [`src/`](../src/) (`stm32-nucleo-gmr-encoder`, pinned) |
-| 3 | Phase 1 — serial comms | ✅ per src (5/5, 2026-04-05) — re-confirm on this bench |
-| 4 | Phase 0/2 (safety, encoder) | ⏳ src Phase 2 = wiring in progress |
-| 5 | Phase 3–7 (motion → faults) | ⛔ needs wiring + 12 V + written go-ahead |
+| 1 | actuator-lab docs + submodule firmware | ✅ |
+| 2 | Phase 1 comms / Phase 2 encoder | ✅ bench-confirmed (5/5; CW=+, reverses, zero at rest) |
+| 3 | Phase 3 open-loop + direction | ✅ DIAG +duty→+866 rpm (after `motor.c` sign fix) |
+| 4 | Phase 4 closed-loop RPM | ✅ **kp=0.0015 ki=0.01 kd=0** baked as boot defaults; ss_err<0.5 rpm @80/150; band 0–200 |
+| 5 | Phase 5–7 (position, repeatability, faults) | ⛔ needs 12 V + fresh written go-ahead |
 
-## Exact next steps
-1. **Sync the submodule:** `git submodule update --init --recursive` (first checkout). To pull upstream
-   fixes later: `git submodule update --remote actuators/mg513-gmr-nucleo-f401/src` then commit the bump.
-2. **Wire** per [../WIRING.md](../WIRING.md) — critical: **encoder VCC = 5 V (CN6-5)**, common ground,
-   **12 V connected LAST**, SB13/14 ON / SB62/63 OPEN, add the PB1 battery-divider.
-3. **Phase 1 re-confirm (no 12 V):** flash `src/firmware`, run `src/host` server / `hw_test --phases 1,2`;
-   verify VCP comms + encoder counts by hand.
-4. **Phase 3+ need a written go-ahead.** Then: first motion (swap MOTOR A/B if reversed) → **Phase 4
-   verify 60 000 cnt/rev** against a shaft mark → RPM survey/auto-tune → position repeatability → faults.
+## ⚠️ Local firmware fixes in `src/` (NOT committed upstream — kept local per Arif)
+Rebuild needs **`make clean && make`** (plain `make` linked a stale object once). Then OpenOCD `program … verify reset`.
+1. **`Core/Src/motor.c`** — `Motor_SetOutput()` `duty = -duty;` (direction: +duty→+RPM/+encoder).
+2. **`Core/Src/main.c`** — added `HAL_UART_ErrorCallback` (clears UART ORE + re-arms RX). Fixes the
+   **command-RX wedge** (was: board silently ignores all commands until ST-LINK reset).
+3. **`Core/Src/controller.c`** — RPM `PID_Init` boot defaults `0.0015f, 0.01f, 0.0f` (was 0.5/0.1/0.01,
+   ~300× too hot → bang-bang). Baked because **runtime flash-save is broken** (IWDG resets mid sector-erase).
+
+## Exact next steps (Phase 5+)
+1. **Power on** (controller/USB first, then 12 V current-limited ~2–3 A) and **get a fresh written go-ahead**.
+2. **Phase 4 cal still open:** bench-verify **60 000 cnt/rev** (500 PPR×4×30) against a shaft mark, multi-rev
+   method (sibling gearbox measured 28:1, not 30 — don't assume). Also settle whether telemetry `rpm` is
+   motor- or output-shaft (MOTOR_MAX_RPM=200 in that unit).
+3. **Phase 5 position mode** (`CMD_SET_POSITION` / trapezoidal profile), **Phase 6 repeatability**
+   (N out-and-back, drift), **Phase 7 faults** (overcurrent EN-gated, stall, ESTOP/brake, IWDG, low-batt).
+4. **Command hygiene:** commands land reliably now (wedge fixed), but keep cadence sane. Use the
+   `hw_test` `SerialFixture` path (auto-clear-fault + atexit ESTOP). Bench scripts in
+   `scratchpad/` (`tune.py`, `verify_boot.py`) are throwaway helpers.
 
 ## Gotchas (carried in)
-- **Do NOT edit the firmware here** — it's a submodule; fix in `rnd-southerniot/stm32-nucleo-gmr-encoder`
-  and bump the pointer.
+- **Firmware fixes are LOCAL** — the `src/` submodule shows a dirty tree (motor.c, main.c, controller.c);
+  pointer intentionally NOT bumped. To persist: commit in `rnd-southerniot/stm32-nucleo-gmr-encoder` + bump.
 - Encoder 5 V (not 3.3). PA4 (CT) ≤ 3.3 V; CT floats without 12 V (overcurrent gated on EN).
-- 18650 sags under load — a stiff bench PSU is better for any current/characterization work.
+- Relay **autotune bails to FAILED** on this plant → leaves gains unchanged; hand-tune is the proven path.
+- 18650 sags under load — a stiff bench PSU is better for current/characterization work.
 - **Don't confuse with [mg513p30-hall-motor](../../mg513p30-hall-motor/)** (Hall 13-PPR, F429+MC33886).
 
 ## One-line resume
 ```bash
-cd /Users/robotics/Developer/projects/robotics/actuator-lab && git submodule update --init --recursive && \
-  $EDITOR actuators/mg513-gmr-nucleo-f401/WIRING.md actuators/mg513-gmr-nucleo-f401/COMMISSIONING-LOG.md
+cd /Users/robotics/Developer/projects/robotics/actuator-lab/actuators/mg513-gmr-nucleo-f401/src/firmware && \
+  make clean && make && openocd -f interface/stlink.cfg -f target/stm32f4x.cfg \
+  -c "program build/dc-motor-pid.elf verify reset exit"
 ```

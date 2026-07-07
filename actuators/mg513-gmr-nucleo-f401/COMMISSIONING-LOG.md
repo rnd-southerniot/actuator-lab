@@ -65,12 +65,45 @@ Coordinated hand-rotation capture (no 12 V) over the COBS link (`pos`=output-sha
   *oscillates* (bounded ±300, out bang-bangs ±1) instead of running away → `kp=0.5/ki=0.1` ≈ 1000× too
   high for this plant (15 % open-loop already ≈ 866 rpm). **Phase 4 = autotune / set sane gains (~1e-3).**
 
-## Phase 4 — Scaling / calibration  ⚠️ go-ahead
-- **Unit constant: 60 000 counts = 1.000 output rev** (500 PPR × 4 × 30) → **bench-verify** against a
-  shaft mark (multi-rev method; sibling gearbox was 28:1). Measured: ______
+## Phase 4 — Closed-loop RPM  ✅ 2026-07-07 (go-ahead given) — tuned + baked
+| Check | Expected | Measured | Pass? |
+|---|---|---|---|
+| Closed-loop tracks setpoint | rpm → sp | ss_err **+0.1 @80**, **−0.2 @150** rpm | ✅ |
+| No output saturation | \|out\|<1 | 0% samples at \|out\|≥0.99; out_ss≈0.038 | ✅ |
+| Setpoint ceiling honored | clamp @200 | sp=300 → 200 (MOTOR_MAX_RPM=200, this unit) | ✅ |
+| Tuned gains persist | boot = tuned | boots kp=0.0015 ki=0.01 kd=0.0 after reset | ✅ |
+- **Tuned gains: `kp=0.0015, ki=0.01, kd=0.0`** (RPM PID). Hand-tuned on-bench (relay autotune bails —
+  see below). Stock `0.5/0.1/0.01` is ~300× too hot: 0.15 duty ≈ 866 rpm, so a 30-rpm error alone
+  saturates the output → **bang-bang limit cycle** (rpm ±340, out ±1.0). At kp=0.0015 the loop is stable
+  and non-saturating; ki=0.01 nulls the proportional droop to <0.5 rpm.
+- **Noise:** velocity-estimate noise ≈ ±30 rpm (1σ) at steady state, but `out` is steady → shaft speed is
+  steady; this is measurement noise (same trait as sibling MG513P30 before its windowed estimator).
+- **Persistence via baked boot defaults** (controller.c `PID_Init`), NOT runtime flash-save — see FW-BUG-02.
+  Matches the lab pattern ("bake tuned boot defaults", MG513P30).
+- Closed-loop RPM band this config: **0–200 rpm** (telemetry unit; MOTOR_MAX_RPM setpoint clamp).
+
+### 🔧 Firmware findings this session (all fixes LOCAL to the `src/` submodule — not committed upstream)
+- **FW-FIX-01 — direction (Phase 3):** `motor.c` `Motor_SetOutput()` `duty = -duty;` (recorded above).
+- **FW-BUG-01 / FW-FIX-02 — command-RX wedge (found + fixed):** at 921600 a command byte arriving while
+  the 1 kHz control ISR runs overruns the single-byte `HAL_UART_Receive_IT` (ORE). The firmware had **no
+  `HAL_UART_ErrorCallback`**, so on ORE the HAL aborts RX and never re-arms → **command RX dies permanently
+  while telemetry TX keeps streaming** (looks like "board ignores commands"; only an ST-LINK reset cleared
+  it). **Fix:** added `HAL_UART_ErrorCallback` in `main.c` that clears ORE and re-arms single-byte RX.
+  Verified: 120 back-to-back commands (previously reliable wedge) now self-heal. This is why last session's
+  closed-loop commands "wouldn't land" — a firmware bug, not the host scripts.
+- **FW-BUG-02 — runtime flash-save resets the board (found; NOT fixed, sidestepped):** `CMD_SAVE_GAINS`
+  → sector-7 erase blocks the CPU ~1–2 s inside `Flash_SaveGains`, but **IWDG (~400 ms) keeps counting**;
+  the "kick watchdog during suspend" loop can't run during the blocking erase → **IWDG resets mid-erase**,
+  leaving flash invalid so boot falls back to defaults. Confirmed: save → gains revert to 0.5/0.1/0.01;
+  post-reset boot = defaults. **Worked around by baking tuned gains as boot defaults** (deterministic,
+  reproducible). A proper fix would refresh IWDG immediately before erase + widen its reload, or move gains
+  to a RAM-func erase — deferred (out of commissioning scope; flagged for the source repo).
 
 ## Phase 5 — Speed survey  ⚠️ go-ahead (src Phase 4: closed-loop RPM PID + autotune)
 - Closed-loop RPM sweep; relay-feedback auto-tune available in firmware. Log tracking + noise.
+- **NOTE:** firmware relay-autotune (`CMD_AUTOTUNE`) bails to FAILED on this plant (oscillation exceeds
+  `AUTOTUNE_AMPLITUDE_MAX*MOTOR_MAX_RPM` safety before 3 clean cycles) → leaves gains unchanged. Hand-tune
+  is the validated path here; autotune tuning is a future refinement (lower relay amp / raise safety band).
 
 ## Phase 6 — Repeatability  ⚠️ go-ahead (src Phase 5: position mode)
 - Cascaded position→velocity; e.g. 360° = one output rev, N out-and-back cycles, drift.

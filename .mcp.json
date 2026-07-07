@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "mg513-matlab": {
+      "command": "/Users/robotics/.venvs/mg513-matlab-mcp/bin/python",
+      "args": [
+        "/Users/robotics/Developer/projects/robotics/actuator-lab/actuators/mg513-gmr-nucleo-f401/mcp/matlab_mcp_server.py"
+      ],
+      "env": {
+        "MG513_PORT": "/dev/cu.usbmodem1103"
+      }
+    }
+  }
+}

@@ -178,7 +178,7 @@ independent TIM9 1 kHz control loop mirroring Axis A. **Axis A untouched (regres
 | 7 E-STOP under motion | mode→estop, out→0 | spun 128 rpm → estop, out 0.000 | ✅ |
 | 7 clear-fault → IDLE | recovers | CLEAR_FAULT_B → idle | ✅ |
 | 7 stall detection | fault on hold | held @60 rpm → **fault @2.5 s, flag 0x02**, clear→idle | ✅ |
-| 7 overcurrent | — | **N/A** — Motor B CT disabled (PC0/PC4 wiring unverified) | ⏳ |
+| 7 overcurrent | CT reads, no false trip | ✅ CT on **PC4** (bench-confirmed): idle ~0, driven 0.06–0.20 A | ✅ |
 
 ### ⚠️⚠️ Motor B direction inverted (like Axis A) — READ
 First closed-loop move (+25 rpm) ran away to **−10050 rpm, out saturated 1.0** (positive feedback,
@@ -191,8 +191,21 @@ correct. `dir_sign` is per-axis in the `MotorHandle` — Axis A stays −1, Axis
   (position). Per-axis: direction sign (bench), baked RPM gains 0.0015/0.01/0 (same plant as A).
 - **Command delivery:** `SET_MODE_B`/`SET_POSITION_B` can no-op on the first fire-and-forget send;
   drive them with a telemetry read-back retry (`pos_sp`/`mode`) — then reliable. Same class as Axis A.
-- **Open items:** Motor-B overcurrent (needs CT wiring confirmed — map says PC4/ADC1_IN14, note the
-  HW-BUG-05 CT swap) then enable `ct_enabled`; and the map/firmware Motor-A EN divergence (PC10 vs PA10).
+### CT / EN reconciliation to the auro-balancer map (2026-07-07, closed)
+Resolved the map-vs-firmware divergences by bench test:
+- **Motor A EN = PC10** (was PA10). Verified: Motor A did NOT enable on PA10 (rpm 0, CT floated
+  ~2.5 A); moved EN → PC10 and it spins (sp 40 → 38, sp 80 → 83 rpm). Rig was rewired to the map.
+- **Motor A CT = PC3** (ADC1_IN13, was PA4/IN4); **Motor B CT = PC4** (ADC1_IN14, was PC0). Both
+  now read real current (idle ~0 vs the old floating ~2.5 A; driven ~0.05 A) with no false trip →
+  overcurrent protection live on **both** axes.
+- **🐛 Bug found + fixed:** a `__disable_irq` critical section around the shared-ADC read (added to
+  guard the A/B race) **starved the byte-wise USART RX interrupt → dropped command bytes**
+  (`SET_RPM`/`SET_MODE` intermittently not landing; Motor A stall-faulted, commanded-but-not-driven).
+  Removed it — the A/B ADC preemption race is benign (worst case = the other axis's low current for
+  one sample; can't false-trip the >8 A check). This was also the root of the `SET_MODE_B` no-op.
+- Final wiring (both axes match auro-balancer HARDWARE_TRUTH §3): A = PWM PA8/PA9, ENC PA0/PA1,
+  EN **PC10**, CT **PC3**; B = PWM PB6/PB7, ENC PA6/PA7, EN **PC11**, CT **PC4**.
 
-**Result:** ✅ Motor B validated Phases 2–7 (overcurrent N/A). Dual-axis rig complete: both motors
-independent closed-loop RPM + position on one NUCLEO.
+**Result:** ✅ Motor B validated Phases 2–7 (incl. overcurrent). Dual-axis rig **complete**: both
+motors run independent closed-loop RPM + trapezoidal position with encoders, current sense +
+overcurrent, stall detection, and E-STOP on one NUCLEO. Firmware `feat/dual-axis-motor-b` (submodule).

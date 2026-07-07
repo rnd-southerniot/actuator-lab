@@ -1,0 +1,13 @@
+# MATLAB / Simulink build artifacts
+*.slxc
+slprj/
+*.autosave
+
+# Python
+mcp/__pycache__/
+**/__pycache__/
+*.pyc
+
+# HIL capture scratch (keep curated CSVs in docs/sysid/ explicitly)
+mcp/data/
+mcp/reports/

@@ -1,0 +1,17 @@
+# MG513/GMR MATLAB MCP server — Python deps.
+# Install into a python3.11/3.12 venv (the MATLAB Engine API does NOT support
+# the 3.14 system interpreter). The engine itself is installed separately from
+# the local MATLAB dist so its version matches the installed MATLAB exactly:
+#
+#   python3.12 -m venv ~/.venvs/mg513-matlab-mcp
+#   ~/.venvs/mg513-matlab-mcp/bin/pip install -r requirements.txt
+#   ~/.venvs/mg513-matlab-mcp/bin/pip install /Applications/MATLAB_R2026a.app/extern/engines/python
+#
+fastmcp
+pyserial
+pyserial-asyncio   # serial_reader.py imports serial_asyncio at module load
+numpy
+scipy
+matplotlib
+# matlabengine  -> installed from /Applications/MATLAB_R2026a.app/extern/engines/python
+#                  (version-locked to the installed MATLAB; currently 26.1 for R2026a)

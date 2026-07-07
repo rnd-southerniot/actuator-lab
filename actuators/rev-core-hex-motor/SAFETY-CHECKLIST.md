@@ -6,10 +6,10 @@ session). Don't wire control until A–F are filled.
 Refs: REV Core Hex Motor docs (2026-06-29); **Waveshare RPi Motor Driver Board** schematic (2× MC33886,
 74LVC8T245, LM2596); STM32F429I-DISC1 + `rnd-southerniot/st-discovery` `docs/stm32f429i-disc1-pin-mapping.md`.
 
-## A. Control-input drive requirement
-- STM32 3.3 V → Waveshare board RPi-header logic (PWMA/IN1/IN2) **through its 74LVC8T245 translator**;
-  **supply 3V3 to the board** (translator VCA ref) + shared GND. PWM ~20 kHz. Confirm the IN/PWM truth
-  table + header pin numbers from the Waveshare wiki. ☐
+- STM32 3.3 V → board header **PWMA (Pin 37) + M1 (Pin 38) + M2 (Pin 40)** through the **74LVC8T245**
+  translator; **supply 3V3 to Pi-header Pin 1** (translator A-side / VCCA ref) + shared GND (Pin 34/39). PWM
+  ~1 kHz; M1/M2 = direction, PWMA = active-high enable. **Power-select switch OFF** (board must not
+  back-feed 5 V to the F429). ☐
 
 ## B. Comms / tuning port level
 - STM32 USB (ST-LINK VCP / SWD) for flashing + telemetry. No high-voltage pin to a PC. ☐

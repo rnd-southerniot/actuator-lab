@@ -85,3 +85,26 @@ policy). A quieter velocity estimator (windowed, like the P30 retrofit) would al
 - `rpm_multistep_*.csv` — 5-step rich profile (40/60/120/140/80) for I/O fitting.
 - `rpm_step_80_overlay_*.csv` + `overlay_80_*.png` — the HIL overlay capture + plot.
 - **All closed-loop, 100 Hz.** Open-loop 1 kHz captures (pending the burst logger) will supersede these.
+
+---
+
+## ✅ RESOLVED — real plant via `CMD_SET_DUTY` open-loop (2026-07-07)
+The "data-limited" blocker above was closed by adding an **open-loop raw-duty firmware command**
+(`CMD_SET_DUTY`, `CTRL_MODE_OPENLOOP`, EN-gated — submodule `feat/dual-axis-motor-b`). Open-loop steps
+are **clean** (steady rpm sd ~5 vs ±30 closed-loop), so the plant identifies immediately:
+- **Steady-state map** (duty → motor rpm), highly linear (R²>0.99): 0.08→552, 0.12→985, 0.16→1421,
+  0.20→1855, 0.25→2379, 0.30→2923 → **K = 10 766 rpm/duty** (slope), Coulomb breakaway ~**0.028 duty**
+  (offset −306 rpm). Self-consistent: 80 rpm needs ~0.036 duty = the closed-loop steady duty.
+- **Step fit** (0→0.20 duty): **τ = 0.067 s**, R² = 0.9925.
+- `matlab/scripts/mg513_gmr_params.m` now carries `K=10766, τ=0.067` (real, not placeholder).
+- **HIL validation:** with the real plant the Simulink model **matches hardware** — the rate-limited
+  0→80 ramp (~0.4 s) and steady 80 rpm both track; residual RMSE ≈ the ±30 rpm velocity-noise floor
+  (`sysid/overlay_80_20260707_192412.png`). Earlier placeholder RMSE was ~2× larger.
+- **Design note:** RPM step response is **rate-limiter-dominated** (200 rpm/s), so `pidtune` on the bare
+  plant (`mg513_design.m`) is optimistic on settling; validate gains via `mg513_sim_closed` (which
+  includes the rate limiter + encoder LPF) and HIL. The **velocity-estimate noise (±30 rpm)** is now the
+  limiting factor — a windowed estimator (like the sibling P30) is the next fidelity upgrade.
+- Data: `sysid/openloop_step_020_*.csv` (+ the steady-state map in the run log).
+
+**Next:** Phase-2 Simulink external mode (`CMD_SET_DUTY` is the seam — stream the control action each
+tick); optionally a windowed velocity estimator to cut the noise floor; dual-axis extension.

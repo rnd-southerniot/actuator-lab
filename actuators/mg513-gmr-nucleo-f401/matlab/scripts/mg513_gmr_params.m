@@ -9,15 +9,15 @@ function p = mg513_gmr_params()
 %   out_min, out_max, MOTOR_MAX_RPM, enc_lpf_alpha, ramp_rate) so blocks can
 %   reference them by name. Templated on reference/qube-servo2-plant params.
 %
-%   K/tau are a PLACEHOLDER (see docs/MODELING.md): K from the DIAG open-loop
-%   point (0.15 duty -> ~866 rpm), tau from the sibling MG513P30 accel step.
-%   Clean plant-ID is blocked on the current firmware (closed-loop 100 Hz data,
-%   friction-breakaway operating point, ~+/-30 rpm noise) -> needs the open-loop
-%   1 kHz burst logger. Do NOT trust these for design without that upgrade.
+%   K/tau are BENCH-IDENTIFIED (2026-07-07) from an open-loop duty step via the
+%   CMD_SET_DUTY firmware command: steady-state slope of the rpm-vs-duty map
+%   (R2>0.99, clean) gives K; a first-order fit of the 0->0.2 duty step gives tau
+%   (R2=0.9925). Small-signal linear model for control; the plant also has a
+%   Coulomb breakaway ~0.028 duty (a DC offset, not in this incremental model).
 
-    % --- First-order plant (duty -> motor-shaft RPM) --- PLACEHOLDER
-    p.K   = 5773.0;   % DC gain [RPM at duty = 1.0]   (placeholder; see MODELING.md)
-    p.tau = 0.08;     % mechanical time constant [s]  (placeholder; from sibling)
+    % --- First-order plant (duty -> motor-shaft RPM) --- bench-identified
+    p.K   = 10766.0;  % DC gain [RPM/duty] — steady-state slope (open-loop map)
+    p.tau = 0.067;    % mechanical time constant [s] — open-loop step fit
 
     % --- Drivetrain / encoder ---
     p.gear_ratio = 30;

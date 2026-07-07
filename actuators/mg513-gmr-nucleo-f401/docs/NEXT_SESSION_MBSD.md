@@ -10,8 +10,8 @@ MG513/GMR rig. Full detail: [MODELING.md](MODELING.md). Plant-ID is the open blo
 | A — MATLAB MCP server | ✅ built (`../mcp/matlab_mcp_server.py`, 12 tools, persistent `matlab.engine`). Registered in repo-root `.mcp.json` as `mg513-matlab` — **⏸ needs one-time approval** (`run claude` → approve). |
 | B — Simulink plant + faithful PID | ✅ **bit-exact** to firmware SIL (max\|Δu\|=0, RMSE=0). `mg513_pid_fcn.m`, `mg513_sim_closed.m`, `mg513_gmr_params.m`, design `mg513_gmr_plant.slx`. Gate: `../mcp/validate_matlab_vs_sil.py`. |
 | C — serial HIL bridge | ✅ `../mcp/hil_bridge.py` (reuses COBS/CRC + ESTOP guarantee). Comms-only selftest passes. |
-| D — plant identification | ⚠️ **data-limited** — see below. Placeholder K/τ in `mg513_gmr_params.m`. |
-| E — live HIL overlay | ✅ pipeline demonstrated end-to-end on hardware (push gains → capture → model → overlay PNG + RMSE). |
+| D — plant identification | ✅ **REAL plant** via the new `CMD_SET_DUTY` open-loop command: K=10766 rpm/duty (R²>0.99), τ=0.067 s (R²=0.9925), breakaway ~0.028 duty. `mg513_gmr_params.m` updated. |
+| E — live HIL overlay | ✅ with the real plant the model **matches hardware** (rate-limited ramp + steady both track; RMSE ≈ velocity-noise floor). |
 
 **Environment:** MATLAB R2026a (Simulink, Control, System-ID, Simscape all licensed). Engine venv at
 `~/.venvs/mg513-matlab-mcp` (python3.12 — the 3.14 system Python can't host the engine). Deps in

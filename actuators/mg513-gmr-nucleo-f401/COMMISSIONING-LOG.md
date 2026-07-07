@@ -105,11 +105,46 @@ Coordinated hand-rotation capture (no 12 V) over the COBS link (`pos`=output-sha
   `AUTOTUNE_AMPLITUDE_MAX*MOTOR_MAX_RPM` safety before 3 clean cycles) → leaves gains unchanged. Hand-tune
   is the validated path here; autotune tuning is a future refinement (lower relay amp / raise safety band).
 
-## Phase 6 — Repeatability  ⚠️ go-ahead (src Phase 5: position mode)
-- Cascaded position→velocity; e.g. 360° = one output rev, N out-and-back cycles, drift.
+## Phase 5 — Position mode  ✅ 2026-07-07 (go-ahead given) — trap profile fixed
+| Check | Expected | Measured | Pass? |
+|---|---|---|---|
+| Absolute move accuracy | err <2° | 90°→**0.0°**, 0°→**0.0°**, 360°(270° travel)→**0.0°** | ✅ |
+| Trapezoidal motion | smooth ramp | clean accel/cruise/decel; no overshoot | ✅ |
+| Deadband at target | out <5% | out→0.0 at target (holds, no buzz) | ✅ |
+- **Cascade = TrapProfile (feedforward velocity) → RPM PID → motor** (pos_pid retained but unused).
+- **FW-FIX-04 (config.h, LOCAL):** stock `TRAP_MAX_VEL_DEG_S=720`, `ACCEL=3600` demand ~3600 rpm at the
+  motor (×GEAR_RATIO) but the loop clamps to MOTOR_MAX_RPM=200 (~40°/s output) — so the **time-based
+  profile finished ~18× before the clamped motor arrived → 12° of a 90° move, then stopped**. Matched to
+  the real limit: **`TRAP_MAX_VEL_DEG_S=30`, `ACCEL/DECEL=90`**. After fix all moves land at ~0° error.
+- ⚠️ **hw_test `phase5` 5.1 (360°) FAILs on a harness timeout only** — its 8 s cap < 9 s needed at the
+  correct 30°/s (270° travel). Verified separately with a 14 s capture: 360°→**360.0°, err +0.0**. 5.2/5.3/5.4
+  PASS in-harness. Motion/accuracy are correct; the harness timeout was tuned for the unvalidated 720°/s.
+- Rebuild gotcha: `config.h` is a header → **`make clean && make`** (plain `make` relinked stale objects,
+  identical run twice until cleaned).
 
-## Phase 7 — Fault handling & recovery  ⚠️ go-ahead (src Phase 6: safety systems)
-- Overcurrent (CT, EN-gated), stall detection, E-STOP/brake, IWDG watchdog, low-battery. Verify
-  detect → fail-safe → recover.
+## Phase 6 — Repeatability  ✅ 2026-07-07 (go-ahead given)
+| Check | Expected | Measured | Pass? |
+|---|---|---|---|
+| Return-to-zero drift, 5× out-and-back (0↔180°) | <2° | mean **−0.02°**, **sd 0.00**, max \|drift\| **0.0°** | ✅ |
+| Endpoint repeat @180° | tight | mean 180.01°, **sd 0.00** | ✅ |
+- 1800° total travel, **zero lost counts** and tight deadband convergence over 5 cycles. Measures the
+  closed-loop returning to its own encoder position (no dial indicator → not an *absolute* mechanical
+  check, but 0-count drift is the key controller result). Ran via `scratchpad/pos_repeat.py`.
 
-**Result:** ☐ ✅ validated (Phase 7 passed) — update catalog row.
+## Phase 7 — Fault handling & recovery  ⏳ 2026-07-07 partial (E-STOP + recovery ✅; stall/OC interactive pending)
+| Check | Expected | Measured | Pass? |
+|---|---|---|---|
+| E-STOP under motion | mode→estop, out→0 | spun 185 rpm → **estop, out 0.000, rpm→0** | ✅ |
+| Clear-fault → IDLE | recovers | CLEAR_FAULT → mode idle | ✅ |
+| Fault flags clean at rest | 0 | fault=0 | ✅ |
+| **Stall detection** | fault on hold | *needs interactive shaft-hold* | ⏳ |
+| Overcurrent (CT, EN-gated) | trip on load | *needs mechanical load; overlaps stall* | ⏳ |
+| IWDG watchdog recover | reset→recover | not induced (would need a deliberate hang) | ⏳ |
+| Low-battery | BATT warn/crit | PB1 divider likely unpopulated — deferred | ⏳ |
+- **E-STOP + fault recovery proven** (the core safety path). Ran via `scratchpad/estop_test.py` /
+  `safety.py`. Lesson: send `SET_MODE=RPM` with a mode-readback retry when coming out of position-mode
+  deadband — the first fire-and-forget can be a no-op (comms are reliable, but state transitions need a beat).
+- **Stall/overcurrent** are the harness's *interactive* test (spin 60 rpm, hold the shaft): needs a fresh
+  motion go-ahead + operator hands + care (30:1 output torque). Left for a focused Phase-7 session.
+
+**Result:** ☐ ⏳ Phases 0–6 ✅; Phase 7 E-STOP/recovery ✅, stall/OC/IWDG/low-batt pending — catalog ⏳ P0–6.

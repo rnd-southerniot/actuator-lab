@@ -1,16 +1,17 @@
 # NEXT SESSION — MG513/GMR + DBH-12V + NUCLEO-F401RE
 
-Handoff note. Updated **2026-07-07** — **Phases 0–4 PASS on-bench** (comms, encoder, open-loop,
-closed-loop RPM). Three LOCAL firmware fixes applied in `src/` (see below). P5–7 remain.
+Handoff note. Updated **2026-07-07** — **Phases 0–6 PASS on-bench** + Phase 7 E-STOP/recovery. Four
+LOCAL firmware fixes in `src/` (see below). Only interactive Phase-7 faults (stall/OC) remain.
 
 ## Where we are
 | # | Item | State |
 |---|---|---|
-| 1 | actuator-lab docs + submodule firmware | ✅ |
-| 2 | Phase 1 comms / Phase 2 encoder | ✅ bench-confirmed (5/5; CW=+, reverses, zero at rest) |
-| 3 | Phase 3 open-loop + direction | ✅ DIAG +duty→+866 rpm (after `motor.c` sign fix) |
-| 4 | Phase 4 closed-loop RPM | ✅ **kp=0.0015 ki=0.01 kd=0** baked as boot defaults; ss_err<0.5 rpm @80/150; band 0–200 |
-| 5 | Phase 5–7 (position, repeatability, faults) | ⛔ needs 12 V + fresh written go-ahead |
+| 1 | Phase 1–2 comms / encoder | ✅ (5/5; CW=+, reverses, zero at rest) |
+| 2 | Phase 3 open-loop + direction | ✅ DIAG +duty→+866 rpm (after `motor.c` sign fix) |
+| 3 | Phase 4 closed-loop RPM | ✅ **kp=0.0015 ki=0.01 kd=0** baked; ss_err<0.5 rpm @80/150; band 0–200 |
+| 4 | Phase 5 position | ✅ moves 90/0/360° → ~0° err (after trap-vel fix) |
+| 5 | Phase 6 repeatability | ✅ 5× 0↔180° → **0.0° drift**, sd 0.00 |
+| 6 | Phase 7 faults | ⏳ E-STOP + fault-recovery ✅; **stall/overcurrent interactive** (hold shaft) pending; IWDG/low-batt deferred |
 
 ## ⚠️ Local firmware fixes in `src/` (NOT committed upstream — kept local per Arif)
 Rebuild needs **`make clean && make`** (plain `make` linked a stale object once). Then OpenOCD `program … verify reset`.
@@ -19,6 +20,8 @@ Rebuild needs **`make clean && make`** (plain `make` linked a stale object once)
    **command-RX wedge** (was: board silently ignores all commands until ST-LINK reset).
 3. **`Core/Src/controller.c`** — RPM `PID_Init` boot defaults `0.0015f, 0.01f, 0.0f` (was 0.5/0.1/0.01,
    ~300× too hot → bang-bang). Baked because **runtime flash-save is broken** (IWDG resets mid sector-erase).
+4. **`Core/Inc/config.h`** — `TRAP_MAX_VEL_DEG_S 30` / `ACCEL,DECEL 90` (was 720/3600). Stock demanded
+   ~3600 rpm at motor but loop clamps to 200 → time-based profile finished ~18× early (12° of a 90° move).
 
 ## Exact next steps (Phase 5+)
 1. **Power on** (controller/USB first, then 12 V current-limited ~2–3 A) and **get a fresh written go-ahead**.

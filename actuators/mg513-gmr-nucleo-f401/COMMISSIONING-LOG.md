@@ -148,3 +148,51 @@ Coordinated hand-rotation capture (no 12 V) over the COBS link (`pos`=output-sha
   motion go-ahead + operator hands + care (30:1 output torque). Left for a focused Phase-7 session.
 
 **Result:** ☐ ⏳ Phases 0–6 ✅; Phase 7 E-STOP/recovery ✅, stall/OC/IWDG/low-batt pending — catalog ⏳ P0–6.
+
+---
+
+# Axis B (Motor B) — dual-axis commissioning  ✅ 2026-07-07
+
+Second MG513/GMR motor on the **same NUCLEO-F401RE** (auro-balancer dual-motor rig). Firmware:
+dual-axis `stm32-nucleo-gmr-encoder` @ `5a76778` (branch `feat/dual-axis-motor-b`). Axis B runs an
+independent TIM9 1 kHz control loop mirroring Axis A. **Axis A untouched (regression 5/5).**
+
+## Wiring (verified against auro-balancer HARDWARE_TRUTH §3)
+| Signal | Pin | Peripheral | AF |
+|---|---|---|---|
+| Motor B PWM CH1/CH2 | PB6 / PB7 | TIM4_CH1/CH2 | AF2 (20 kHz, ARR=4199) |
+| Motor B EN | PC11 | GPIO out (active-HIGH, start LOW) | — |
+| Encoder B CH1/CH2 | PA6 / PA7 | TIM3_CH1/CH2 | AF2 (16-bit) |
+| Control ISR B | — | TIM9 (shared TIM1_BRK_TIM9 vector) | — |
+| Motor B CT | PC0/IN10 in fw (map says PC4) | — | **disabled** — wiring unverified |
+
+## Phase results
+| Phase | Check | Measured | Pass? |
+|---|---|---|---|
+| 1 comms | 0xAB telemetry + CMD_*_B | ~100 Hz, per-axis seq contiguous, boots IDLE | ✅ |
+| 2 encoder | hand-rotate → counts | 308° travel, bidirectional (rpm ±1400) | ✅ |
+| 3 first motion + direction | +duty → +rpm | **inverted like Axis A → `dir_sign=-1`**; +25→+20 rpm, no runaway | ✅ |
+| 4 closed-loop RPM | ss_err, saturation | 80 rpm: **ss_err +0.0**, out 0.034, 0% sat (baked gains as-is) | ✅ |
+| 5 position | move accuracy | 90°/270° both ways → **±0.1°** err, no saturation | ✅ |
+| 6 repeatability | 5× out-and-back drift | return drift **0.0°**, sd 0.00 | ✅ |
+| 7 E-STOP under motion | mode→estop, out→0 | spun 128 rpm → estop, out 0.000 | ✅ |
+| 7 clear-fault → IDLE | recovers | CLEAR_FAULT_B → idle | ✅ |
+| 7 stall detection | fault on hold | held @60 rpm → **fault @2.5 s, flag 0x02**, clear→idle | ✅ |
+| 7 overcurrent | — | **N/A** — Motor B CT disabled (PC0/PC4 wiring unverified) | ⏳ |
+
+### ⚠️⚠️ Motor B direction inverted (like Axis A) — READ
+First closed-loop move (+25 rpm) ran away to **−10050 rpm, out saturated 1.0** (positive feedback,
+same as Axis A / WIRING #5). ESTOP'd; motor undamaged. Fixed by `g_motor_b.dir_sign = -1` in
+`motor.c` (bench-verified; the parameterized firmware equivalent of swapping the B leads). Re-verified
+correct. `dir_sign` is per-axis in the `MotorHandle` — Axis A stays −1, Axis B now −1.
+
+### Notes
+- Global fixes inherited by B: UART-ORE `HAL_UART_ErrorCallback` (command wedge), trap-vel=30
+  (position). Per-axis: direction sign (bench), baked RPM gains 0.0015/0.01/0 (same plant as A).
+- **Command delivery:** `SET_MODE_B`/`SET_POSITION_B` can no-op on the first fire-and-forget send;
+  drive them with a telemetry read-back retry (`pos_sp`/`mode`) — then reliable. Same class as Axis A.
+- **Open items:** Motor-B overcurrent (needs CT wiring confirmed — map says PC4/ADC1_IN14, note the
+  HW-BUG-05 CT swap) then enable `ct_enabled`; and the map/firmware Motor-A EN divergence (PC10 vs PA10).
+
+**Result:** ✅ Motor B validated Phases 2–7 (overcurrent N/A). Dual-axis rig complete: both motors
+independent closed-loop RPM + position on one NUCLEO.

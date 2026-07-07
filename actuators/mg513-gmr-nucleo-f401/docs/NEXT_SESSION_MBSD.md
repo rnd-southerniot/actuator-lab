@@ -12,6 +12,8 @@ MG513/GMR rig. Full detail: [MODELING.md](MODELING.md). Plant-ID is the open blo
 | C — serial HIL bridge | ✅ `../mcp/hil_bridge.py` (reuses COBS/CRC + ESTOP guarantee). Comms-only selftest passes. |
 | D — plant identification | ✅ **REAL plant** via the new `CMD_SET_DUTY` open-loop command: K=10766 rpm/duty (R²>0.99), τ=0.067 s (R²=0.9925), breakaway ~0.028 duty. `mg513_gmr_params.m` updated. |
 | E — live HIL overlay | ✅ with the real plant the model **matches hardware** (rate-limited ramp + steady both track; RMSE ≈ velocity-noise floor). |
+| F — windowed velocity estimator | ⛔ **evaluated, REJECTED** — boxcar noisier than the fc=20 Hz IIR *and* destabilizes the low-speed loop (stiction limit cycle); floor is mechanical, not quantization. Reverted. Write-up: [MODELING.md](MODELING.md#-windowed-velocity-estimator--evaluated-on-the-bench-rejected-2026-07-07). |
+| G — model-based velocity observer | ✅ **built, HW-validated, shipped** — predictor–corrector on the identified plant (K=10766, τ=0.067, Coulomb=306, L=0.10) replaces the IIR in `encoder.c` (both axes). Bench: 9–36 % quieter, lower feedback lag, stable, mean unchanged. **Stall detection routed to a raw-velocity accessor** (model estimate can mask a stall). S2/S3 bit-exact at the real plant; pytest 231-green. Details: [MODELING.md](MODELING.md#-model-based-velocity-observer--implemented--shipped-2026-07-07). |
 
 **Environment:** MATLAB R2026a (Simulink, Control, System-ID, Simscape all licensed). Engine venv at
 `~/.venvs/mg513-matlab-mcp` (python3.12 — the 3.14 system Python can't host the engine). Deps in
@@ -37,6 +39,14 @@ sibling MG513P30's `cap`). Large open-loop duty steps (0.4–0.99) at 1 kHz give
    raw-duty command (~50–100 Hz). Design seam is documented in MODELING.md.
 5. **Dual-axis extension** — both motors are now commissioned; the bridge/MCP can target either axis
    (`hil_bridge` capture already axis-filters; add an `axis` param to the HIL tools).
+6. **Model-based velocity observer** — ✅ DONE (item G above): built, HW-validated, shipped with stall
+   detection moved to raw velocity; S2/S3 bit-exact. Remaining *optional* observer polish:
+   - **HIL-tune L** if a specific app needs a lower noise floor (L<0.10 trades model-trust for less
+     noise; validate mean accuracy + transient at the operating point).
+   - **Mechanical floor** — further noise reduction is now mechanical (stick-slip near breakaway):
+     preload/lube or a higher-CPR encoder, not more estimation.
+   - Update the design `.slx` from the legacy IIR to the observer (currently only the text predictor
+     `mg513_sim_closed.m` carries the observer; `enc_lpf_alpha` is retained for the `.slx`).
 
 ## Files (present in this actuator folder)
 - `../mcp/`: `matlab_mcp_server.py`, `hil_bridge.py`, `validate_matlab_vs_sil.py`, `fit_plant_graybox.py`,

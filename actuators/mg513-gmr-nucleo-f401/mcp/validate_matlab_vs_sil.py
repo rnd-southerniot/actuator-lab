@@ -5,8 +5,9 @@ S2/S3 gate — prove the MATLAB model is faithful to the firmware SIL ground tru
   S2  PID equivalence : feed an identical (setpoint, measurement) sequence
       (including saturation excursions that exercise the anti-windup) to both
       mg513_pid_fcn (MATLAB) and PIDControllerPy (pid_py.py); assert max|Δu|<1e-6.
-  S3  Closed-loop     : run mg513_sim_closed (MATLAB) and the sil_runner RPM loop
-      (Python) with identical K/tau/gains/setpoint; assert trajectory RMSE<0.5 RPM.
+  S3  Closed-loop     : run mg513_sim_closed (MATLAB) and py_sim_closed (Python),
+      both observer-based, at the identified plant with identical gains/setpoint;
+      assert trajectory RMSE<0.5 RPM (proves the model == as-flashed firmware).
 
 Run:  ~/.venvs/mg513-matlab-mcp/bin/python mcp/validate_matlab_vs_sil.py
 Needs the MATLAB engine venv; no hardware.
@@ -28,7 +29,9 @@ from sil.pid_py import PIDControllerPy  # noqa: E402
 from sil.motor_plant import MotorPlant  # noqa: E402
 
 DT = 1e-3
-ALPHA = 1.0 / (1.0 + 1000.0 / (2.0 * math.pi * 20.0))  # encoder LPF, fc=20 Hz
+# Model-based velocity observer — baked firmware constants (config.h), must match
+# mg513_sim_closed.m exactly for the S3 gate.
+OBS_K, OBS_TAU, OBS_C, OBS_L = 10766.0, 0.067, 306.0, 0.10
 
 
 def py_pid_run(sp, meas, kp, ki, kd):
@@ -37,11 +40,12 @@ def py_pid_run(sp, meas, kp, ki, kd):
 
 
 def py_sim_closed(setpoint, dur, kp, ki, kd, K, tau):
-    """Mirror sil_runner.run_rpm_step, capturing the rpm_filt trajectory."""
+    """Mirror mg513_sim_closed (observer-based) — capture the estimate trajectory."""
     plant = MotorPlant(K=K, tau=tau)
     pid = PIDControllerPy(kp=kp, ki=ki, kd=kd)
     rl_val = 0.0
-    rpm_filt = 0.0
+    rpm_filt = 0.0   # observer estimate
+    u_prev = 0.0     # previous applied duty (predictor input)
     n = round(dur / DT)
     traj = np.empty(n)
     for k in range(n):
@@ -51,7 +55,16 @@ def py_sim_closed(setpoint, dur, kp, ki, kd, K, tau):
         out = pid.update(rl_val, rpm_filt, DT)
         out = max(-1.0, min(1.0, out))
         po = plant.step(out, DT)
-        rpm_filt = ALPHA * po.rpm_motor + (1.0 - ALPHA) * rpm_filt
+        # model-based velocity observer (predictor–corrector), same as encoder.c
+        au = abs(u_prev)
+        wss = OBS_K * au - OBS_C
+        if wss < 0.0:
+            wss = 0.0
+        if u_prev < 0.0:
+            wss = -wss
+        w_pred = rpm_filt + (wss - rpm_filt) * (DT / OBS_TAU)
+        rpm_filt = w_pred + OBS_L * (po.rpm_motor - w_pred)
+        u_prev = out
         traj[k] = rpm_filt
     return traj
 
@@ -99,10 +112,12 @@ def main() -> int:
     print(f"S2 PID (with kd):        max|du| = {d2b:.3e}   -> {'PASS' if s2b_pass else 'FAIL'}")
 
     # ---- S3: closed-loop equivalence vs SIL ------------------------------
+    # Real plant (matches the observer's baked model) — the model now represents
+    # the observer-based firmware, so validate at the identified plant.
     for (setpoint, K, tau, kp, ki, kd) in [
-        (80.0, 200.0, 0.15, 0.0015, 0.01, 0.0),
-        (150.0, 200.0, 0.15, 0.0015, 0.01, 0.0),
-        (100.0, 180.0, 0.12, 0.002, 0.02, 0.0),
+        (80.0, 10766.0, 0.067, 0.0015, 0.01, 0.0),
+        (150.0, 10766.0, 0.067, 0.0015, 0.01, 0.0),
+        (100.0, 10766.0, 0.067, 0.002, 0.02, 0.0),
     ]:
         traj_py = py_sim_closed(setpoint, 3.0, kp, ki, kd, K, tau)
         res = eng.mg513_sim_closed(

@@ -27,8 +27,17 @@ function p = mg513_gmr_params()
     % --- Control loop (firmware) ---
     p.dt = 1e-3;              % 1 kHz TIM6 ISR
     p.ramp_rate = 200.0;      % SETPOINT_RAMP_RPM_PER_S
-    % Encoder velocity IIR LPF (fc = 20 Hz at fs = 1 kHz) — matches encoder.c
-    p.enc_lpf_alpha = 1.0 / (1.0 + 1000.0 / (2.0*pi*20.0));
+    % Velocity estimator (as-flashed firmware): model-based OBSERVER — predicts
+    % velocity from the commanded duty via the identified plant (friction-
+    % compensated affine K·u − Coulomb, relaxing with tau_obs), corrects with the
+    % raw encoder at gain L. Low noise at the plant-tau lag floor (no filter lag).
+    % See encoder.c / MODELING.md. (enc_lpf_alpha retained for the legacy design
+    % .slx, which still models the superseded fc=20 Hz IIR.)
+    p.obs_K   = 10766.0;      % predictor DC gain [rpm/duty]
+    p.obs_tau = 0.067;        % predictor time constant [s]
+    p.obs_C   = 306.0;        % Coulomb breakaway offset [rpm]
+    p.obs_L   = 0.10;         % correction gain (HIL-tunable)
+    p.enc_lpf_alpha = 1.0 / (1.0 + 1000.0 / (2.0*pi*20.0));  % legacy IIR (design .slx)
 
     % --- Baked PID gains (as-flashed) ---
     p.kp = 0.0015;
@@ -42,8 +51,8 @@ function p = mg513_gmr_params()
 
     % Push scalars to base workspace for Simulink block references.
     fn = ["K","tau","dt","gear_ratio","cpr_motor","MOTOR_MAX_RPM", ...
-          "ramp_rate","enc_lpf_alpha","kp","ki","kd","N","b","c", ...
-          "out_min","out_max"];
+          "ramp_rate","obs_K","obs_tau","obs_C","obs_L","enc_lpf_alpha", ...
+          "kp","ki","kd","N","b","c","out_min","out_max"];
     for k = 1:numel(fn)
         assignin('base', fn(k), p.(fn(k)));
     end

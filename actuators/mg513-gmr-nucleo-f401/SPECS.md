@@ -51,8 +51,19 @@
 | Battery mon | PB1 | ADC1_IN9 | CN10-24 | 100k/33k divider |
 | UART TX/RX | PA2/PA3 | USART2 | ST-LINK VCP | Host USB |
 
-*(Second channel — Motor B on PB6/PB7/PB10/PC0 + enc PC6/PC7 — documented in [src/WIRING.md](src/WIRING.md); not used for this single-axis commissioning.)*
+**⚠️ SUPERSEDED — dual-axis update (verified 2026-07-07; source: config.h + COMMISSIONING-LOG.md "CT/EN reconciliation, closed").** The single-axis pin rows above are stale. Bench-verified current truth for the dual-axis rig:
+
+| Signal | Axis A | Axis B |
+|---|---|---|
+| Motor PWM | PA8/PA9 (TIM1) | PB6/PB7 (TIM4) |
+| Encoder | PA0/PA1 (TIM2) | PA6/PA7 (TIM3) |
+| Motor EN | **PC10** (was PA10) | **PC11** |
+| Current sense (CT) | **PC3 / ADC1_IN13** (was PA4/IN4) | **PC4 / ADC1_IN14** |
+| Control ISR | TIM5 (was TIM6) | TIM9 |
+
+Both axes: `ct_enabled=true`, overcurrent latch **live** (EN-gated, >8 A → brake); bench-confirmed reading real current (idle ~0, driven 0.05–0.20 A, no false trip). The **>8 A trip itself has not been empirically forced** — see verification follow-up.
 
 ## Verified-on-bench
-- Source repo status: **Phase 1 (serial comms) 5/5 PASS** (2026-04-05); Phase 2 (encoder) pending wiring.
+- **Both axes fully commissioned 2026-07-07** (Axis A Phases 1–6; Axis B Phases 2–7 incl. overcurrent + stall + E-STOP). Dual-axis rig complete. (Legacy line below predates commissioning.)
+- Source repo status (legacy): **Phase 1 (serial comms) 5/5 PASS** (2026-04-05); Phase 2 (encoder) pending wiring.
   Actuator-lab commissioning re-runs the gates in this repo's structure — see [COMMISSIONING-LOG.md](COMMISSIONING-LOG.md).

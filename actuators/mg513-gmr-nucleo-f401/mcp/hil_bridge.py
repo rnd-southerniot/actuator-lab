@@ -138,21 +138,34 @@ def hil_capture(port: str, setpoint: float, dur: float = 3.0, mode: str = "rpm",
     """Command a setpoint and stream telemetry to a CSV. SPINS THE MOTOR."""
     sf = _connect(port)
     try:
-        sf.send_raw(build_command(CMD_CLEAR_FAULT))
-        time.sleep(0.3)
-        # enter mode with a verify-retry (state-transition can no-op once)
         m = MODE_RPM if mode == "rpm" else MODE_POSITION
         want = "rpm" if mode == "rpm" else "position"
-        for _ in range(3):
-            sf.send_raw(build_command(CMD_SET_MODE, p1=m))
-            time.sleep(0.25)
-            if want in _modes(sf, 0.4):
-                break
         cmd = CMD_SET_RPM if mode == "rpm" else CMD_SET_POSITION
-        sf.send_raw(build_command(cmd, p1=setpoint))
-        cap = sf.capture(dur)
-        sf.send_raw(build_command(CMD_ESTOP))
-        time.sleep(0.2)
+        echo = "rpm_sp" if mode == "rpm" else "pos_sp"
+        tol = max(1.0, 0.05 * abs(setpoint))
+        # A single fire-and-forget SET_RPM can race the mode-entry setpoint init
+        # and silently no-op (board retains the prior setpoint). Verify the
+        # ramp-limited setpoint echo actually reaches the target within the
+        # capture and retry the whole capture if not. Re-capturing (rather than
+        # pre-settling) keeps the ramp in-frame so the overlay stays aligned.
+        cap = None
+        for _ in range(3):
+            sf.send_raw(build_command(CMD_CLEAR_FAULT))
+            time.sleep(0.3)
+            for _ in range(3):  # enter mode with a verify-retry
+                sf.send_raw(build_command(CMD_SET_MODE, p1=m))
+                time.sleep(0.25)
+                if want in _modes(sf, 0.4):
+                    break
+            sf.send_raw(build_command(cmd, p1=setpoint))
+            cap = sf.capture(dur)
+            sf.send_raw(build_command(CMD_ESTOP))
+            time.sleep(0.2)
+            have_echo = any(echo in p for p in cap.packets)
+            reached = (not have_echo) or any(
+                abs(p.get(echo, 0.0) - setpoint) <= tol for p in cap.packets)
+            if reached:
+                break  # setpoint applied (a mid-run stall still counts as applied)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         suffix = f"_{tag}" if tag else ""
         csv_path = DOCS_SYSID / f"{mode}_step_{int(setpoint)}{suffix}_{stamp}.csv"

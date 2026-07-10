@@ -29,6 +29,13 @@ function res = mg513_sim_closed(setpoint, dur, kp, ki, kd, K, tau, mode)
     OBS_C   = 306.0;     % Coulomb breakaway offset [rpm]
     OBS_L   = 0.10;      % correction gain
 
+    % Plant Coulomb friction + stiction breakaway, in DUTY space (so it is
+    % independent of the rpm-unit scaling of K). Below U_BD the shaft cannot
+    % overcome static friction (stuck); above it, kinetic Coulomb subtracts an
+    % equivalent duty. Identified from the clean open-loop CMD_SET_DUTY map
+    % (breakaway ~0.028 duty; Coulomb 306 rpm / K=10766).
+    U_BD    = 0.028;     % breakaway duty (static + kinetic Coulomb, duty-equiv)
+
     g  = mg513_pid_gains(kp, ki, kd);
     st = mg513_pid_state();
 
@@ -52,8 +59,14 @@ function res = mg513_sim_closed(setpoint, dur, kp, ki, kd, K, tau, mode)
         [u, st] = mg513_pid_fcn(sp_rl, rpm_filt, dt, g, st);
         u = min(1.0, max(-1.0, u));
 
-        % First-order plant, forward Euler: tau*dw/dt + w = K*u
-        rpm = rpm + (K*u - rpm) / tau * dt;
+        % First-order plant with Coulomb friction + stiction dead-zone,
+        % forward Euler: tau*dw/dt + w = K*u_eff.
+        if abs(u) <= U_BD && abs(rpm) < 1.0
+            u_eff = 0.0;                    % stuck: below static breakaway
+        else
+            u_eff = u - sign(u) * U_BD;     % kinetic Coulomb duty offset
+        end
+        rpm = rpm + (K*u_eff - rpm) / tau * dt;
 
         % Model-based velocity observer (predictor–corrector). Measurement is the
         % (noiseless in-model) plant velocity; predictor uses u_prev. Friction-

@@ -32,6 +32,9 @@ DT = 1e-3
 # Model-based velocity observer — baked firmware constants (config.h), must match
 # mg513_sim_closed.m exactly for the S3 gate.
 OBS_K, OBS_TAU, OBS_C, OBS_L = 10766.0, 0.067, 306.0, 0.10
+# Plant Coulomb friction + stiction breakaway in duty space — must match
+# mg513_sim_closed.m exactly for the S3 gate.
+U_BD = 0.028
 
 
 def py_pid_run(sp, meas, kp, ki, kd):
@@ -41,9 +44,9 @@ def py_pid_run(sp, meas, kp, ki, kd):
 
 def py_sim_closed(setpoint, dur, kp, ki, kd, K, tau):
     """Mirror mg513_sim_closed (observer-based) — capture the estimate trajectory."""
-    plant = MotorPlant(K=K, tau=tau)
     pid = PIDControllerPy(kp=kp, ki=ki, kd=kd)
     rl_val = 0.0
+    rpm = 0.0        # plant state (Coulomb friction + stiction dead-zone)
     rpm_filt = 0.0   # observer estimate
     u_prev = 0.0     # previous applied duty (predictor input)
     n = round(dur / DT)
@@ -54,7 +57,13 @@ def py_sim_closed(setpoint, dur, kp, ki, kd, K, tau):
         rl_val += max(-mx, min(mx, d))
         out = pid.update(rl_val, rpm_filt, DT)
         out = max(-1.0, min(1.0, out))
-        po = plant.step(out, DT)
+        # First-order plant with Coulomb friction + stiction dead-zone (duty
+        # space); identical to mg513_sim_closed.m.
+        if abs(out) <= U_BD and abs(rpm) < 1.0:
+            u_eff = 0.0                      # stuck: below static breakaway
+        else:
+            u_eff = out - math.copysign(U_BD, out)  # kinetic Coulomb offset
+        rpm = rpm + (K * u_eff - rpm) / tau * DT
         # model-based velocity observer (predictor–corrector), same as encoder.c
         au = abs(u_prev)
         wss = OBS_K * au - OBS_C
@@ -63,7 +72,7 @@ def py_sim_closed(setpoint, dur, kp, ki, kd, K, tau):
         if u_prev < 0.0:
             wss = -wss
         w_pred = rpm_filt + (wss - rpm_filt) * (DT / OBS_TAU)
-        rpm_filt = w_pred + OBS_L * (po.rpm_motor - w_pred)
+        rpm_filt = w_pred + OBS_L * (rpm - w_pred)
         u_prev = out
         traj[k] = rpm_filt
     return traj

@@ -9,6 +9,9 @@ commissioning log, results, handoff) plus its native bench-test firmware. Onboar
 new motor is a **test process**, not just paperwork — every actuator earns its status by
 passing the phase-gated [commissioning workflow](docs/COMMISSIONING-WORKFLOW.md).
 
+Feedback **sensors** that close the loop around these actuators — encoders first — live in
+their own `sensors/` class, with their own bring-up gates (they never move anything).
+
 ## Catalog
 
 | Actuator | Type | Control | MCU / Tool | Status | Folder |
@@ -24,6 +27,15 @@ passing the phase-gated [commissioning workflow](docs/COMMISSIONING-WORKFLOW.md)
 Status legend: ✅ validated (all gates) · ⏳ partial (Phases 0–N) · ⚠️ blocked at a gate ·
 ⛔ not started · 📘 reference/modeling. See [docs/CONVENTIONS.md](docs/CONVENTIONS.md).
 
+## Sensors
+
+| Sensor | Type | Interface | MCU / Tool | Status | Folder |
+|---|---|---|---|---|---|
+| ams **AS5047P** (AS5047P-TS_EK_AB adapter) | 14-bit on-axis magnetic rotary encoder | SPI mode 1 · ABI / UVW / PWM | STM32F4 (NUCLEO-F401RE, WeAct Black Pill) | ⏳ partial (P0–P3: on the SPI bus, datasheet defaults read back, 0 parity errors; P4 needs a magnet) | [sensors/as5047p-encoder](sensors/as5047p-encoder) |
+
+A sensor's status is the highest phase passed in **its own** bring-up gates, kept in the sensor's
+repo — not the motion commissioning workflow above. See [docs/CONVENTIONS.md](docs/CONVENTIONS.md).
+
 ## ⚠️ Safety first
 
 Any command that **energizes or moves** a motor is gated. Read the actuator's
@@ -38,6 +50,7 @@ actuator-lab/
 ├── docs/        # COMMISSIONING-WORKFLOW (the test pipeline), ADD-A-MOTOR, CONVENTIONS
 ├── templates/   # _actuator-template/ (copy per motor) + test-harness/ (proven starting firmware)
 ├── actuators/   # one folder per driven motor (native folder or git submodule)
+├── sensors/     # feedback sensors (encoders, …) — git submodules with their own bring-up gates
 └── reference/   # modeling/design references (not driven actuators)
 ```
 

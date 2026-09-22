@@ -30,7 +30,18 @@ Every driven motor folder under `actuators/` follows
 Submodule-backed motors keep their own layout; they're summarized by their catalog row,
 which links into the submodule's own docs.
 
-## Source-of-truth rules
+## Sensor folders (`sensors/`)
+Feedback sensors — encoders, current sensors, IMUs — are catalogued here because they close the
+loop around the actuators, but they are **not driven actuators**:
+
+- The [commissioning workflow](COMMISSIONING-WORKFLOW.md) does **not** apply. Its Phases 3–7 are
+  motion gates, and a sensor never moves anything.
+- Each sensor is a **git submodule** carrying its own phase-gated bring-up (for example
+  `docs/BRINGUP.md` inside the submodule). Its catalog status is the highest phase passed in
+  **those** gates, using the same emojis: ✅ all gates passed · ⏳ partial · ⚠️ blocked · ⛔ not started.
+- Slug is model-first and names the function: `as5047p-encoder`.
+- Its catalog row lives in the README's **Sensors** table, not the actuator catalog.
+
 - `SPECS.md` wins over the catalog if they ever disagree — fix the catalog.
 - Cite the manual (name + version + date) for every spec value.
 - The catalog `README.md` table is the index; it points to folders/submodules.

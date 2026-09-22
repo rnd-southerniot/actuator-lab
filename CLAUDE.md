@@ -37,7 +37,9 @@ is only ✅ when Phase 6 passes, recorded in its `COMMISSIONING-LOG.md`.
 
 ## Submodules
 - Existing code repos enter as submodules (e.g. `actuators/leesn-ig28et-stepper`,
-  `reference/qube-servo2-plant`). They keep their own CI/history.
+  `reference/qube-servo2-plant`, `sensors/as5047p-encoder`). They keep their own CI/history.
+- `sensors/` holds feedback sensors. They never move anything, so the motion commissioning
+  workflow does not apply; each follows its own bring-up gates (see `docs/CONVENTIONS.md`).
 - Clone with `--recurse-submodules`; update with `git submodule update --remote`.
 - Do NOT edit submodule internals from here — fix in the source repo and bump the pointer.
 

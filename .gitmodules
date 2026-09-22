@@ -10,3 +10,6 @@
 [submodule "actuators/mg513-gmr-nucleo-f401/src"]
 	path = actuators/mg513-gmr-nucleo-f401/src
 	url = https://github.com/rnd-southerniot/stm32-nucleo-gmr-encoder.git
+[submodule "sensors/as5047p-encoder"]
+	path = sensors/as5047p-encoder
+	url = https://github.com/rnd-southerniot/fw-as5047p-encoder.git
